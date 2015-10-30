@@ -22,7 +22,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.primitives.Doubles.tryParse;
-import static java.lang.Thread.sleep;
 
 /**
  * Created by mob on 22.10.15.
@@ -40,7 +39,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private String username;
     private String password;
     private String type;
-    private LimitedQueue<Map<String, HistoryObject>> history;
+    private LimitedQueue<State> history;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public ZabbixMonitoringAgent() throws RemoteException {
@@ -54,31 +53,39 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         long startingTime = currTime - Long.parseLong(period); // that's the point of time where requested history starts
 
         synchronized (history) {
+            LinkedList<State> historyImportant = new LinkedList<State>();  // the part of the history which lies in the period
+            Iterator<State> iterator = history.descendingIterator();
+
+            // get the latest history entry
+            if (iterator.hasNext())
+                historyImportant.add(iterator.next());
+
+
+            while (iterator.hasNext()) {
+                State entry = iterator.next();
+                if (entry.getTime() < startingTime) {
+                    break;
+                }
+                historyImportant.add(entry);
+            }
+
             for (String host : hostnames) {
 
-                LinkedList<HistoryObject> historyImportant = new LinkedList<HistoryObject>();  // the part of the history which lies in the period
-                Iterator<Map<String, HistoryObject>> iterator = history.descendingIterator();
-                // get the latest history entry
-                if (iterator.hasNext())
-                    historyImportant.add(iterator.next().get(host));
+                // check if the host exists in the latest state of history
+                if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
+                    throw new RemoteException("The hostname " + host + " does not exist.");
 
-                while (iterator.hasNext()) {
-                    HistoryObject ho = iterator.next().get(host);
-                    if (ho.getTimestamp() < startingTime) {
-                        break;
-                    }
-                    historyImportant.add(ho);
-                }
 
                 for (String metric : metrics) {
-                    Iterator<HistoryObject> historyIterator = historyImportant.iterator();
+                    Iterator<State> historyIterator = historyImportant.iterator();
+
                     Item item = new Item();
                     item.setHostname(host);
                     item.setMetric(metric);
 
-                    HistoryObject hObj = historyIterator.next();
+                    HistoryObject hObj = historyIterator.next().getHostsHistory().get(host);
                     if (!hObj.keyExists(metric))
-                        continue;
+                        throw new RemoteException("The metric " + metric + " does not exist for host " + host + ".");
 
                     item.setHostId(hObj.getHostId());
 
@@ -88,7 +95,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     Double avg = (Double) tryParse(value);
                     if (avg != null) { // it is a number and no string
                         while (historyIterator.hasNext()) {
-                            avg += Double.parseDouble(historyIterator.next().getMeasurement(metric));
+                            Map<String, HistoryObject> hostsAndHistory = historyIterator.next().getHostsHistory();
+                            if (!hostsAndHistory.containsKey(host)) {
+                                throw new RemoteException("The period is too long for host " + host +
+                                        " because he just started existing inside the specified time frame.");
+                            }
+                            if (!hostsAndHistory.get(host).keyExists(metric)) {
+                                throw new RemoteException("The metric " + metric +
+                                        "did not exist at every time in the specified period for host " + host + ".");
+                            }
+                            avg += Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
                         }
                         avg /= historyImportant.size();
                         value = avg.toString();
@@ -142,7 +158,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 String hostName = jsonObj.getAsJsonObject().get("name").getAsString();
                 JsonArray itemArray = jsonObj.get("items").getAsJsonArray();
                 Iterator<JsonElement> itemIterator = itemArray.iterator();
-                HistoryObject ho = new HistoryObject(timestamp);
+                HistoryObject ho = new HistoryObject();
                 ho.setHostId(jsonObj.get("hostid").getAsString());
                 // add the values to the HistoryObject
                 while (itemIterator.hasNext()) {
@@ -152,8 +168,9 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
                 snapshot.put(hostName, ho);
             }
+            State state = new State(timestamp, snapshot);
             synchronized (history) {
-                history.add(snapshot);
+                history.add(state);
             }
         }
     };
@@ -265,7 +282,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         type = properties.getProperty("type");
         requestFrequency = Integer.parseInt(properties.getProperty("client-request-frequency"));
         historyLength = Integer.parseInt(properties.getProperty("history-length"));
-        history = new LimitedQueue<Map<String, HistoryObject>>(historyLength);
+        history = new LimitedQueue<State>(historyLength);
         mapper=new GsonBuilder().setPrettyPrinting().create();
         try {
             authenticate(zabbixIp, username, password);

@@ -11,7 +11,9 @@ public class HistoryObject implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private long timestamp = 0;
+    private String hostId = "";
+    private Map<String, String> measurements = new HashMap<String, String>();
+
 
     public String getHostId() {
         return hostId;
@@ -20,22 +22,6 @@ public class HistoryObject implements Serializable {
     public void setHostId(String hostId) {
         this.hostId = hostId;
     }
-
-    private String hostId = "";
-    private Map<String, String> measurements = new HashMap<String, String>();
-
-    public HistoryObject(long timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public void setTimestamp(long time) {
-        this.timestamp = time;
-    }
-
-    public long getTimestamp() {
-        return this.timestamp;
-    }
-
 
     public void setMeasurement(String key, String value) {
         measurements.put(key, value);
