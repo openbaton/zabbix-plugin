@@ -271,10 +271,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             authenticate(zabbixIp, username, password);
         } catch (MonitoringException e) {
             log.error("Authentication failed: " + e.getMessage());
+            throw new RemoteException("Authentication to Zabbix server failed.");
         }
 
         updateHistory.run();
-        scheduler.scheduleAtFixedRate(updateHistory, 0, requestFrequency, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
 
 
     }
