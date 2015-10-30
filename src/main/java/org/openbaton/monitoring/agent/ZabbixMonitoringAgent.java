@@ -46,8 +46,24 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         init();
     }
 
+    /**
+     * @param hostnames a list of hostnames
+     * @param metrics a list of the metrics that shall be retrieved from every hostname
+     * @param period you get for every suitable metric the average value it had for the last <period> seconds of time
+     * @return a list of Items
+     * @throws RemoteException
+     *
+     * The method gives back a list of Items.
+     * For every combination of hostname and metric, one Item will be in the list.
+     * Every Item contains the hostname, the host id, the latest value of one metric
+     * and the average value of the metric in the last <period> seconds.
+     * The average value is in the field 'value', the latest value is in the field 'lastValue'.
+     * The Item's id is always null and the version 0.
+     *
+     */
     @Override
     public List<Item> getMeasurementResults(List<String> hostnames, List<String> metrics, String period) throws RemoteException {
+
         List<Item> items = new LinkedList<Item>();
         long currTime = System.currentTimeMillis()/1000;
         long startingTime = currTime - Long.parseLong(period); // that's the point of time where requested history starts
@@ -57,9 +73,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             Iterator<State> iterator = history.descendingIterator();
 
             // get the latest history entry
-            if (iterator.hasNext())
-                historyImportant.add(iterator.next());
-
+            if (iterator.hasNext()) {
+                State entry = iterator.next();
+                historyImportant.add(entry);
+                // check if the period is too long
+                if (!iterator.hasNext() && entry.getTime() > startingTime)
+                    throw new RemoteException("The period is too long for the existing history.");
+            }
 
             while (iterator.hasNext()) {
                 State entry = iterator.next();
@@ -67,14 +87,14 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     break;
                 }
                 historyImportant.add(entry);
+                if (!iterator.hasNext() && entry.getTime() > startingTime)
+                    throw new RemoteException("The period is too long for the existing history.");
             }
 
             for (String host : hostnames) {
-
                 // check if the host exists in the latest state of history
                 if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
                     throw new RemoteException("The hostname " + host + " does not exist.");
-
 
                 for (String metric : metrics) {
                     Iterator<State> historyIterator = historyImportant.iterator();
@@ -114,11 +134,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
                     items.add(item);
                 }
-
-
             }
         }
-
         return items;
     }
 
