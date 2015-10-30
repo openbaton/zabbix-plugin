@@ -273,14 +273,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             log.error("Authentication failed: " + e.getMessage());
         }
 
-
+        updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, 0, requestFrequency, TimeUnit.SECONDS);
-
-        try {
-            sleep(3000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
 
 
     }
