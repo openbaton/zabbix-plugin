@@ -7,6 +7,7 @@ import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.monitoring.agent.exceptions.MonitoringException;
+import org.openbaton.monitoring.agent.utils.Utils;
 import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private String zabbixURL;
     private int historyLength;
     private int requestFrequency;
-    private Properties properties;
     private Gson mapper;
     private String TOKEN;
     protected Logger log = LoggerFactory.getLogger(this.getClass());
@@ -285,13 +285,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
 
     private void init() throws RemoteException {
-        properties=new Properties();
-        try {
-            properties.load(new FileInputStream(new File("src/main/resources/plugin.conf.properties")));
-        } catch (IOException e) {
-            log.error("Config file not found");
-            throw new RemoteException("Config file not found");
-        }
         zabbixIp=properties.getProperty("zabbix-ip");
         zabbixURL=zabbixIp+"/zabbix/api_jsonrpc.php";
         username=properties.getProperty("user");
