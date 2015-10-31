@@ -19,7 +19,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'spring-boot'
 
-mainClassName = 'org.openbaton.monitoring.agent'
+mainClassName = 'org.openbaton.monitoring.agent.Starter'
 
 
 dependencies {
