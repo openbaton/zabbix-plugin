@@ -288,7 +288,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private void init() throws RemoteException {
         zabbixIp = properties.getProperty("zabbix-ip");
         zabbixPort = properties.getProperty("zabbix-port");
-        zabbixURL = "http://" + zabbixIp + ":" + zabbixPort + "/zabbix/api_jsonrpc.php";
+        if (zabbixPort == null || zabbixPort.equals("")) {
+            zabbixURL = "http://" + zabbixIp + "/zabbix/api_jsonrpc.php";
+        }
+        else {
+            zabbixURL = "http://" + zabbixIp + ":" + zabbixPort + "/zabbix/api_jsonrpc.php";
+        }
         username = properties.getProperty("user");
         password = properties.getProperty("password");
         type = properties.getProperty("type");
