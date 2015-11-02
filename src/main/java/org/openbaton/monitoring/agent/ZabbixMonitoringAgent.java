@@ -30,6 +30,7 @@ import static com.google.common.primitives.Doubles.tryParse;
 public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private String zabbixIp;
+    private String zabbixPort;
     private String zabbixURL;
     private int historyLength;
     private int requestFrequency;
@@ -285,15 +286,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
 
     private void init() throws RemoteException {
-        zabbixIp=properties.getProperty("zabbix-ip");
-        zabbixURL=zabbixIp+"/zabbix/api_jsonrpc.php";
-        username=properties.getProperty("user");
-        password=properties.getProperty("password");
+        zabbixIp = properties.getProperty("zabbix-ip");
+        zabbixPort = properties.getProperty("zabbix-port");
+        zabbixURL = "http://" + zabbixIp + ":" + zabbixPort + "/zabbix/api_jsonrpc.php";
+        username = properties.getProperty("user");
+        password = properties.getProperty("password");
         type = properties.getProperty("type");
         requestFrequency = Integer.parseInt(properties.getProperty("client-request-frequency"));
         historyLength = Integer.parseInt(properties.getProperty("history-length"));
         history = new LimitedQueue<State>(historyLength);
-        mapper=new GsonBuilder().setPrettyPrinting().create();
+        mapper = new GsonBuilder().setPrettyPrinting().create();
         try {
             authenticate(zabbixIp, username, password);
         } catch (MonitoringException e) {
