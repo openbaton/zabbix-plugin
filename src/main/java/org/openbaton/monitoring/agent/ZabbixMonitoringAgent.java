@@ -103,10 +103,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     throw new RemoteException("The period is too long for the existing history.");
             }
 
-            for (String host : hostnames) {
+            Iterator<String> hostsIterator = hostnames.iterator();
+            while (hostsIterator.hasNext()) {
                 // check if the host exists in the latest state of history
-                if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
-                    throw new RemoteException("The hostname " + host + " does not exist.");
+                String host = hostsIterator.next();
+                if (!historyImportant.peekFirst().getHostsHistory().containsKey(host)){
+//                    throw new RemoteException("The hostname " + host + " does not exist.");
+                    hostsIterator.remove();
+                    continue;
+                }
+
 
                 for (String metric : metrics) {
                     Iterator<State> historyIterator = historyImportant.iterator();
