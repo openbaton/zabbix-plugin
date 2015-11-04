@@ -7,14 +7,10 @@ import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.monitoring.agent.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.utils.Utils;
 import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.rmi.RemoteException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -92,10 +88,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     throw new RemoteException("The period is too long for the existing history.");
             }
 
-            for (String host : hostnames) {
+            Iterator<String> hostsIterator = hostnames.iterator();
+            while (hostsIterator.hasNext()) {
                 // check if the host exists in the latest state of history
-                if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
-                    throw new RemoteException("The hostname " + host + " does not exist.");
+                String host = hostsIterator.next();
+                if (!historyImportant.peekFirst().getHostsHistory().containsKey(host)){
+//                    throw new RemoteException("The hostname " + host + " does not exist.");
+                    hostsIterator.remove();
+                    continue;
+                }
+
 
                 for (String metric : metrics) {
                     Iterator<State> historyIterator = historyImportant.iterator();
