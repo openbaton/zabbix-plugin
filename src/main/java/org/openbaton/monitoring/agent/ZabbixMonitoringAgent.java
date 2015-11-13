@@ -372,7 +372,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             Thread.currentThread().interrupt();
         }
     }
+    private void handleNotification(ZabbixNotification zabbixNotification) {
+        //TODO create the standard notification, look for subscribers and invoke notifyResult
 
+        notifyResults();
+    }
     private void launchServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress(8010), 1);
         myHandler=new MyHandler();
@@ -396,6 +400,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
 
         private void checkRequest(String message) {
+            log.debug("\n\n");
             log.debug("Received: "+message);
             ZabbixNotification zabbixNotification;
             try {
@@ -404,9 +409,10 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 log.warn("Impossible to retrive the ZabbixNotification received",e);
                 return;
             }
-            log.debug("Notification from Zabbix: "+zabbixNotification);
+            log.debug("\n");
+            log.debug("ZabbixNotification: "+zabbixNotification);
+            handleNotification(zabbixNotification);
         }
-
         private String read(InputStream is) throws IOException {
 
             BufferedReader streamReader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
