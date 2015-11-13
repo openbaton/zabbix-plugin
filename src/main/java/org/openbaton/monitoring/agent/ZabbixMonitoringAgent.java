@@ -5,16 +5,17 @@ import com.google.gson.*;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.monitoring.agent.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.utils.Utils;
 import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.net.InetSocketAddress;
 import java.rmi.RemoteException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -43,8 +44,18 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private LimitedQueue<State> history;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
+    //Server properties
+    private HttpServer server;
+    private MyHandler myHandler;
+    //
+
     public ZabbixMonitoringAgent() throws RemoteException {
         init();
+        try {
+            launchServer();
+        } catch (IOException e) {
+            throw new RemoteException(e.getMessage(),e);
+        }
     }
 
     /**
@@ -219,7 +230,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 log.error("Post on the Zabbix server failed",e);
             }
         }
-        log.debug("Response received: " + jsonResponse);
+        //log.debug("Response received: " + jsonResponse);
 
         JsonObject responseOb = mapper.fromJson(jsonResponse.getBody(), JsonObject.class);
         if(responseOb == null)
@@ -246,7 +257,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             return isAuthorized;
         }
 
-        log.debug("Check authorization in this response:" + responseOb);
+        //log.debug("Check authorization in this response:" + responseOb);
 
         error = responseOb.get("error");
         if(error == null) {
@@ -281,7 +292,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             jsonObject.addProperty("auth",TOKEN);
         jsonObject.addProperty("id", 1);
 
-        log.debug("Json for zabbix:\n" + mapper.toJson(jsonObject));
+        //log.debug("Json for zabbix:\n" + mapper.toJson(jsonObject));
         return mapper.toJson(jsonObject);
     }
 
@@ -340,7 +351,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
         this.TOKEN = result.getAsString();
 
-        log.debug("Authenticated to Zabbix Server " + zabbixURL + " with TOKEN " + TOKEN);
+        //log.debug("Authenticated to Zabbix Server " + zabbixURL + " with TOKEN " + TOKEN);
     }
 
 
@@ -360,6 +371,67 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             // Preserve interrupt status
             Thread.currentThread().interrupt();
         }
+    }
+
+    private void launchServer() throws IOException {
+        server = HttpServer.create(new InetSocketAddress(8010), 1);
+        myHandler=new MyHandler();
+        server.createContext("/zabbixplugin/notifications", myHandler);
+        log.debug("Notification receiver running on url: "+server.getAddress()+" port:"+server.getAddress().getPort());
+        server.setExecutor(null);
+        server.start();
+
+    }
+    class MyHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange t) throws IOException {
+            InputStream is = t.getRequestBody();
+            String message = read(is);
+            checkRequest(message);
+            String response = "";
+            t.sendResponseHeaders(200, response.length());
+            OutputStream os = t.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
+        }
+
+        private void checkRequest(String message) {
+            log.debug("Received: "+message);
+            ZabbixNotification zabbixNotification;
+            try {
+                zabbixNotification = mapper.fromJson(message, ZabbixNotification.class);
+            }catch (Exception e){
+                log.warn("Impossible to retrive the ZabbixNotification received",e);
+                return;
+            }
+            log.debug("Notification from Zabbix: "+zabbixNotification);
+        }
+
+        private String read(InputStream is) throws IOException {
+
+            BufferedReader streamReader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+
+            StringBuilder responseStrBuilder = new StringBuilder();
+
+            String inputStr;
+
+            try
+            {
+                while ((inputStr = streamReader.readLine()) != null)
+                    responseStrBuilder.append(inputStr);
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+            finally
+            {
+                streamReader.close();
+            }
+            return responseStrBuilder.toString();
+        }
+
+
     }
 
 }
