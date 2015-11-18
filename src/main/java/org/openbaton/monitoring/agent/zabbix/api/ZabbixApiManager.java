@@ -125,8 +125,7 @@ public class ZabbixApiManager {
 
         log.debug("Sending params: "+params);
 
-        JsonObject responseObj=null;
-        responseObj = zabbixSender.callPost(params, "action.create");
+        JsonObject responseObj = zabbixSender.callPost(params, "action.create");
         log.debug("response received:"+responseObj);
 
         JsonElement resultEl= responseObj.get("result");
@@ -136,5 +135,65 @@ public class ZabbixApiManager {
             log.debug("Created action with id: "+actionId);
         }
         return actionId;
+    }
+
+    // check parameter at url: https://www.zabbix.com/documentation/2.2/manual/api/reference/item/object
+    public List<String> createItem(String name,Integer delay,String hostId,Integer type,Integer valuetype,String itemKey,String interfaceId) throws MonitoringException {
+        List<String> itemsIds=new ArrayList<>();
+        ZabbixItem item=new ZabbixItem(name,itemKey,hostId,type,valuetype,delay);
+        item.setInterfaceId(interfaceId);
+        String params= mapper.toJson(item,ZabbixItem.class);
+        log.debug("Sending params (create item): "+params);
+
+        JsonObject responseObj = zabbixSender.callPost(params, "item.create");
+        log.debug("response received:"+responseObj);
+
+        JsonElement resultEl= responseObj.get("result");
+        if(resultEl!=null && resultEl.isJsonObject()){
+            JsonObject resultObj= resultEl.getAsJsonObject();
+            JsonArray itemsIdsArray= resultObj.get("itemids").getAsJsonArray();
+            for (int i =0 ; i<itemsIdsArray.size(); i++){
+                itemsIds.add(itemsIdsArray.get(i).getAsString());
+            }
+            log.debug("Created the following item ids: "+itemsIds);
+        }
+        return itemsIds;
+    }
+    public String getHostId(String hostname) throws MonitoringException {
+        String hostId="";
+        String params="{\"output\":[\"hostid\"],\"filter\":{\"host\":[\""+hostname+"\"]}}";
+        log.debug("Sending params for getHostId: "+params);
+        JsonObject responseObj = zabbixSender.callPost(params, "host.get");
+        log.debug("response received:"+responseObj);
+
+        JsonElement resultEl= responseObj.get("result");
+        if(resultEl!=null && resultEl.isJsonArray()){
+            JsonArray resultAr= resultEl.getAsJsonArray();
+            hostId = resultAr.get(0).getAsJsonObject().get("hostid").getAsString();
+            log.debug("The host id of "+hostname+" is : "+hostId);
+        }
+        return hostId;
+    }
+
+    public String getHostInterfaceId(String hostID) throws MonitoringException {
+        String interfaceId=null;
+        String params="{\"output\":\"extend\",\"hostids\":\""+hostID+"\"}";
+        log.debug("Sending params for HostInterfaceId: "+params);
+        JsonObject responseObj = zabbixSender.callPost(params, "hostinterface.get");
+        log.debug("response received:"+responseObj);
+
+        JsonElement resultEl= responseObj.get("result");
+        if(resultEl!=null && resultEl.isJsonArray()){
+            JsonArray resultAr= resultEl.getAsJsonArray();
+            for (int i =0 ; i<resultAr.size(); i++){
+                JsonObject interfaceInfoObj= resultAr.get(i).getAsJsonObject();
+                if(interfaceInfoObj.get("type").getAsString().equals("1")
+                        && interfaceInfoObj.get("port").getAsString().equals("10050")
+                        && interfaceInfoObj.get("ip").getAsString().startsWith("192"))
+                    interfaceId=interfaceInfoObj.get("interfaceid").getAsString();
+            }
+        }
+        log.debug("The interface id is:"+interfaceId);
+        return interfaceId;
     }
 }

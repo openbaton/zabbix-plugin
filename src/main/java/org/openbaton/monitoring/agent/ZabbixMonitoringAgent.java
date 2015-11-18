@@ -46,6 +46,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     private String notificationReceiverServerContext;
     private int notificationReceiverServerPort;
     private Gson mapper;
+    private Random random=new Random();
     protected Logger log = LoggerFactory.getLogger(this.getClass());
     private List<AlarmEndpoint> subscriptions;
     private String type;
@@ -75,11 +76,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
      * @throws RemoteException
      *
      * The method gives back a list of Items.
-     * For every combination of hostname and metric, one Item will be in the list.
-     * Every Item contains the hostname, the host id, the latest value of one metric
+     * For every combination of hostname and metric, one ZabbixItem will be in the list.
+     * Every ZabbixItem contains the hostname, the host id, the latest value of one metric
      * and the average value of the metric in the last <period> seconds.
      * The average value is in the field 'value', the latest value is in the field 'lastValue'.
-     * The Item's id is always null and the version 0.
+     * The ZabbixItem's id is always null and the version 0.
      *
      */
     @Override
@@ -243,6 +244,29 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
+
+        List<String> hostnames= new ArrayList<>(); hostnames.add("iperf-server-390");
+        ResourceSelector resourceSelector= new ResourceSelector(hostnames);
+
+        String performanceMetric="net.tcp.listen[5001]";
+        List<String> performanceMetrics= new ArrayList<>(); performanceMetrics.add(performanceMetric);
+        try {
+            Thread.sleep(2000);
+            createPMJob(resourceSelector,performanceMetrics,null,5,10);
+            Thread.sleep(2000);
+
+            ThresholdDetails thresholdDetails= new ThresholdDetails("last(0)","0","=");
+            String triggerId=createThreshold(resourceSelector,performanceMetric,"|",thresholdDetails);
+            Thread.sleep(2000);
+
+            zabbixApiManager.createAction("Action on demand"+random.nextInt(100),triggerId);
+
+        } catch (MonitoringException e) {
+            log.error(e.getMessage(),e);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
 
         //String triggerId=createTrigger("Trigger on demand", "{Template OS Linux:system.cpu.load[percpu,avg1].last(0)}>0.6");
         //zabbixApiManager.createAction("ZabbixAction on demand", "19961");
@@ -436,8 +460,19 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     }
 
     @Override
-    public void createPMJob() {
+    public void createPMJob(ResourceSelector resourceSelector, List<String> performanceMetrics, List<String> performanceMetricGroup, Integer collectionPeriod,
+                            Integer reportingPeriod) throws MonitoringException {
+        List<String> itemIds= new ArrayList<>();
 
+        List<String> hostnames= resourceSelector.getHostnames();
+        for(String hostname: hostnames){
+            String hostId = zabbixApiManager.getHostId(hostname);
+            String interfaceId=zabbixApiManager.getHostInterfaceId(hostId);
+            for(String performanceMetric: performanceMetrics){
+                zabbixApiManager.createItem("ZabbixItem on demand "+random.nextInt(100),collectionPeriod,hostId,0,3,performanceMetric,interfaceId);
+            }
+        }
+        //It should return the id of the PM job created
     }
 
     @Override
