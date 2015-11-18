@@ -1,0 +1,20 @@
+{"name":"Action on demand",
+  "eventsource":0,
+  "evaltype":1,
+  "esc_period":60,
+  "def_longdata":"{\"triggerId\":\"{TRIGGER.ID}\",\"triggerName\":\"{TRIGGER.NAME}\",\"triggerStatus\": \"{TRIGGER.STATUS}\",\"triggerSeverity\":\"{TRIGGER.SEVERITY}\",\"triggerUrl\":\"{TRIGGER.URL}\",\"itemName\":\"{ITEM.NAME}\",\"hostName\":\"{HOST.NAME}\",\"itemKey\":\"{ITEM.KEY}\",\"itemValue\":\"{ITEM.VALUE}\",\"eventId\":\"{EVENT.ID}\",\"eventDate\":\"{EVENT.DATE}\",\"eventTime\":\"{EVENT.TIME}\"}",
+  "conditions":[
+    {"conditiontype":2,"value":"19961","operator":0},
+    {"conditiontype":5,"value":1,"operator":0}
+  ],
+  "operations":[
+    {"operationtype":0,"opmessage_usr":[
+      {"userId":"108"}
+      ],
+      "opmessage":{
+        "default_msg":1,
+        "mediatypeid":"4"
+      }
+    }
+  ]
+}
