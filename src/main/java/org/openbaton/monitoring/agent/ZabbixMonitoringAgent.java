@@ -2,21 +2,22 @@ package org.openbaton.monitoring.agent;
 
 
 import com.google.gson.*;
+import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
+import org.openbaton.catalogue.util.IdGenerator;
 import org.openbaton.monitoring.agent.alarm.catalogue.*;
 import org.openbaton.monitoring.agent.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.interfaces.VirtualisedResourceFaultManagement;
 import org.openbaton.monitoring.agent.interfaces.VirtualisedResourcesPerformanceManagement;
 import org.openbaton.monitoring.agent.performance.management.catalogue.ResourceSelector;
 import org.openbaton.monitoring.agent.performance.management.catalogue.ThresholdDetails;
-import org.openbaton.monitoring.agent.zabbix.api.*;
+import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
 import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -232,7 +233,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         history = new LimitedQueue<>(historyLength);
         mapper = new GsonBuilder().setPrettyPrinting().create();
         subscriptions=new ArrayList<>();
-        subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"localhost:9000/alarm/vr",PerceivedSeverity.MAJOR));
+        subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"http://localhost:9000/alarm/vr",PerceivedSeverity.MAJOR));
         triggerIdHostnames=new HashMap<>();
 
         try {
@@ -245,7 +246,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
 
-        List<String> hostnames= new ArrayList<>(); hostnames.add("iperf-server-390");
+
+        /*List<String> hostnames= new ArrayList<>(); hostnames.add("iperf-server-390");
         ResourceSelector resourceSelector= new ResourceSelector(hostnames);
 
         String performanceMetric="net.tcp.listen[5001]";
@@ -256,6 +258,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
             Thread.sleep(2000);
 
             ThresholdDetails thresholdDetails= new ThresholdDetails("last(0)","0","=");
+            thresholdDetails.setPerceivedSeverity(PerceivedSeverity.MAJOR);
             String triggerId=createThreshold(resourceSelector,performanceMetric,"|",thresholdDetails);
             Thread.sleep(2000);
 
@@ -265,7 +268,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
             log.error(e.getMessage(),e);
         } catch (InterruptedException e) {
             e.printStackTrace();
-        }
+        }*/
 
 
         //String triggerId=createTrigger("Trigger on demand", "{Template OS Linux:system.cpu.load[percpu,avg1].last(0)}>0.6");
@@ -276,6 +279,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
      */
     public void terminate() {
         shutdownAndAwaitTermination(scheduler);
+        server.stop(10);
     }
     void shutdownAndAwaitTermination(ExecutorService pool) {
         pool.shutdown(); // Disable new tasks from being submitted
@@ -300,13 +304,14 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         //Check if the trigger is crossed for the first time
         if(isNewNotification(zabbixNotification)) {
             //TODO create Threshold crossed notification
+            log.debug("Yes is new");
             //if the severity of the notification is more than Not classified or Information,
             // create an alarm or change the state of an existing alarm
             if (!(zabbixNotification.getTriggerSeverity().equals("Not classified") || zabbixNotification.getTriggerSeverity().equals("Information"))) {
-
+                log.debug("creating alarm");
                 Alarm alarm = createAlarm(zabbixNotification);
                 AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmNotification(alarm.getTriggerId(), alarm);
-
+                log.debug("Sending alarm:" + alarm);
                 sendNotification(notification);
 
             }
@@ -337,7 +342,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         //TODO send only to subscribers with certain PerceivedSeverity and resourceId specified
 
         for(AlarmEndpoint ae: subscriptions){
-
             try {
                 notifyFault(ae, notification);
             } catch (UnirestException e) {
@@ -349,12 +353,10 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
     private Alarm createAlarm(ZabbixNotification zabbixNotification) {
         Alarm alarm= new Alarm();
-
         alarm.setTriggerId(zabbixNotification.getTriggerId());
 
         //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object. 
         alarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
-
         //EventTime: Time when the fault was observed. 
         DateFormat dateFormat= new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         Date date = new Date();
@@ -362,14 +364,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
         //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”. 
         alarm.setAlarmState(AlarmState.FIRED);
-
         /*
         Type of the fault.The allowed values for the faultyType attribute depend
         on the type of the related managed object. For example, a resource of type “compute”
         may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc. 
         */
         alarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
-
         /*
         Identifier of the affected managed Object. The Managed Objects for this information element
         will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface. 
@@ -393,6 +393,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         }
         return null;
     }
+    private Integer getPriority(PerceivedSeverity perceivedSeverity) {
+        switch (perceivedSeverity){
+            case INDETERMINATE: return 0/*Not classified*/;
+            case WARNING: return 2/*"Warning"*/;
+            case MINOR: return 3/*"Average"*/;
+            case MAJOR:  return 4/*"High"*/;
+            case CRITICAL: return 5/*"Disaster"*/;
+        }
+        return null;
+    }
 
     private FaultType getFaultType(String itemKey) {
         Metric metric;
@@ -404,15 +414,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
         switch (metric){
             case SYSTEM_CPU_LOAD: return FaultType.COMPUTE_HOGS_CPU;
+            case NET_TCP_LISTEN: return FaultType.IO_NETWORK_FRAME_TRANSMIT;
         }
         return null;
     }
 
     private Metric getMetric(String substring) {
-        switch (substring){
-            case "system.cpu.load": return Metric.SYSTEM_CPU_LOAD;
-        }
-        return null;
+        String metricString= substring.toUpperCase().replaceAll("\\.","_");
+        Metric result=Metric.valueOf(metricString);
+        log.debug("Obtained Metric: "+result+" from: "+substring);
+        return result;
     }
 
 
@@ -427,12 +438,22 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
     @Override
     public String subscribe(AlarmEndpoint endpoint) {
-        return null;
+        String subscriptionId=IdGenerator.createId();
+        endpoint.setId(subscriptionId);
+        subscriptions.add(endpoint);
+        return subscriptionId;
     }
 
     @Override
     public void unsubscribe(String alarmEndpointId) {
-
+        Iterator<AlarmEndpoint> iterator = subscriptions.iterator();
+        while (iterator.hasNext()){
+            AlarmEndpoint currentAlarmEndpoint = iterator.next();
+            if(currentAlarmEndpoint.getId().equals(alarmEndpointId)){
+                iterator.remove();
+                break;
+            }
+        }
     }
 
     @Override
@@ -441,17 +462,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         if(event instanceof VirtualizedResourceAlarmNotification){
             VirtualizedResourceAlarmNotification vran = (VirtualizedResourceAlarmNotification) event;
             String jsonAlarm = mapper.toJson(vran,VirtualizedResourceAlarmNotification.class);
-            log.debug("Sending VirtualizedResourceAlarmNotification: "+jsonAlarm +" to: "+endpoint);
-            response = Unirest.post(endpoint.getEndpoint()).header("Content-type","application/json").body(jsonAlarm).asString();
-
+            log.debug("Sending VirtualizedResourceAlarmNotification: "+jsonAlarm +" to: "+endpoint.getEndpoint());
+            response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
         }
         else if (event instanceof VirtualizedResourceAlarmStateChangedNotification){
             VirtualizedResourceAlarmStateChangedNotification vrascn= (VirtualizedResourceAlarmStateChangedNotification) event;
             String jsonAlarm = mapper.toJson(vrascn,VirtualizedResourceAlarmStateChangedNotification.class);
             log.debug("Sending VirtualizedResourceAlarmStateChangedNotification: "+jsonAlarm+" to: "+endpoint);
-            response = Unirest.put(endpoint.getEndpoint()).header("Content-type","application/json").body(jsonAlarm).asString();
+            response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.PUT,"application/json");
         }
-
+        log.debug("Response is:"+response.getBody());
     }
 
     @Override
@@ -460,29 +480,40 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     }
 
     @Override
-    public void createPMJob(ResourceSelector resourceSelector, List<String> performanceMetrics, List<String> performanceMetricGroup, Integer collectionPeriod,
+    public List<String> createPMJob(ResourceSelector resourceSelector, List<String> performanceMetrics, List<String> performanceMetricGroup, Integer collectionPeriod,
                             Integer reportingPeriod) throws MonitoringException {
-        List<String> itemIds= new ArrayList<>();
+        if(resourceSelector==null || resourceSelector.getHostnames().isEmpty())
+            throw new MonitoringException("The resourceSelector is null or empty");
+        if( performanceMetrics==null && performanceMetricGroup==null)
+            throw new MonitoringException("At least performanceMetrics or performanceMetricGroup need to be present");
+        if(collectionPeriod<0 || reportingPeriod<0)
+            throw new MonitoringException("The collectionPeriod or reportingPeriod is negative");
+        List<String> pmJobIds = new ArrayList<>();
+        if(performanceMetrics!=null) {
+            if(performanceMetrics.isEmpty())
+                throw new MonitoringException("PerformanceMetrics is null");
 
-        List<String> hostnames= resourceSelector.getHostnames();
-        for(String hostname: hostnames){
-            String hostId = zabbixApiManager.getHostId(hostname);
-            String interfaceId=zabbixApiManager.getHostInterfaceId(hostId);
-            for(String performanceMetric: performanceMetrics){
-                zabbixApiManager.createItem("ZabbixItem on demand "+random.nextInt(100),collectionPeriod,hostId,0,3,performanceMetric,interfaceId);
+            List<String> hostnames = resourceSelector.getHostnames();
+            for (String hostname : hostnames) {
+                String hostId = zabbixApiManager.getHostId(hostname);
+                String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+                for (String performanceMetric : performanceMetrics) {
+                    String itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, 0, 3, performanceMetric, interfaceId);
+                    pmJobIds.add(itemId);
+                }
             }
         }
-        //It should return the id of the PM job created
+        return pmJobIds;
     }
 
     @Override
-    public void deletePMJob() {
-
+    public List<String> deletePMJob(List<String> itemIdsToDelete) throws MonitoringException {
+        return zabbixApiManager.deleteItems(itemIdsToDelete);
     }
 
     @Override
-    public void queryPMJob() {
-
+    public List<Item> queryPMJob(List<String> hostnames, List<String> metrics, String period) throws RemoteException {
+       return getMeasurementResults(hostnames,metrics,period);
     }
 
     @Override
@@ -498,6 +529,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     @Override
     public String createThreshold(ResourceSelector resourceSelector, String performanceMetric, String thresholdType, ThresholdDetails thresholdDetails) throws MonitoringException {
 
+        if(resourceSelector==null || resourceSelector.getHostnames().isEmpty())
+            throw new MonitoringException("The resourceSelector is null or empty");
+        if( (performanceMetric==null && performanceMetric.isEmpty()))
+            throw new MonitoringException("The performanceMetric needs to be present");
+        if(thresholdDetails==null)
+            throw new MonitoringException("The thresholdDetails is null");
+
         List<String> hostnames= resourceSelector.getHostnames();
         String firstHostname= hostnames.get(0);
         String thresholdExpression="";
@@ -512,7 +550,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
             thresholdExpression+=singleHostExpression;
         }
 
-        String triggerId = zabbixApiManager.createTrigger("Threshold1",thresholdExpression);
+        String triggerId = zabbixApiManager.createTrigger("Threshold on demand "+random.nextInt(100),thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
 
         return triggerId;
     }

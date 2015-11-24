@@ -4,6 +4,8 @@ package org.openbaton.monitoring.agent;
  * Created by mob on 13.11.15.
  */
 public class ZabbixNotification {
+
+
     private String triggerId;
     private String triggerName;
     private TriggerStatus triggerStatus;
@@ -119,7 +121,8 @@ public class ZabbixNotification {
     @Override
     public String toString() {
         return "ZabbixNotification{" +
-                "triggerName='" + triggerName + '\'' +
+                "triggerId='" + triggerId + '\'' +
+                ", triggerName='" + triggerName + '\'' +
                 ", triggerStatus=" + triggerStatus +
                 ", triggerSeverity='" + triggerSeverity + '\'' +
                 ", triggerUrl='" + triggerUrl + '\'' +

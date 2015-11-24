@@ -6,8 +6,9 @@ package org.openbaton.monitoring.agent.alarm.catalogue;
 public class VirtualizedResourceAlarmStateChangedNotification extends AbstractVirtualizedResourceAlarm {
     private AlarmState alarmState;
 
-    public VirtualizedResourceAlarmStateChangedNotification(String resourceId, AlarmState alarmState) {
-        super(resourceId);
+    public VirtualizedResourceAlarmStateChangedNotification(){}
+    public VirtualizedResourceAlarmStateChangedNotification(String triggerId, AlarmState alarmState) {
+        super(triggerId);
         this.alarmState=alarmState;
 
     }
@@ -18,5 +19,12 @@ public class VirtualizedResourceAlarmStateChangedNotification extends AbstractVi
 
     public void setAlarmState(AlarmState alarmState) {
         this.alarmState = alarmState;
+    }
+
+    @Override
+    public String toString() {
+        return "VirtualizedResourceAlarmStateChangedNotification{" +
+                "alarmState=" + alarmState +
+                "} " + super.toString();
     }
 }

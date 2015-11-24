@@ -22,10 +22,10 @@ public class ZabbixApiManager {
         this.zabbixSender=zabbixSender;
     }
 
-    public String createTrigger(String description,String expression) throws MonitoringException {
+    public String createTrigger(String description,String expression, Integer priority) throws MonitoringException {
         log.debug("createTrigger");
         String triggerId=null;
-        String params = "{'description':'"+description+"','expression':'"+expression+"'}";
+        String params = "{'description':'"+description+"','expression':'"+expression+"', 'priority':'"+priority+"'}";
 
         JsonObject responseObj = zabbixSender.callPost(params, "trigger.create");
         log.debug("response received:"+responseObj);
@@ -37,30 +37,36 @@ public class ZabbixApiManager {
         }
         return triggerId;
     }
-    public List<String> deleteTriggers(List<String> triggersId) throws MonitoringException {
-        List<String> triggerIdDeleted= new ArrayList<>();
-
+    public List<String> delete(String object, List<String> idsToDelete) throws MonitoringException {
+        List<String> objectIdDeleted= new ArrayList<>();
         String params="[";
-        String firstTriggerId=triggersId.get(0);
-        for(String triggerId: triggersId){
-            if(!triggerId.equals(firstTriggerId))
+        String firstObjectId=idsToDelete.get(0);
+        for(String triggerId: idsToDelete){
+            if(!triggerId.equals(firstObjectId))
                 params+=",";
             params+="\""+triggerId+"\"";
         }
         params+="]";
-        JsonObject responseObj = zabbixSender.callPost(params, "trigger.delete");
-        log.debug("response received:"+responseObj);
+        JsonObject responseObj = zabbixSender.callPost(params, object+".delete");
+        log.debug("Response received for "+object+".delete :"+responseObj);
         JsonElement resultEl= responseObj.get("result");
         if(resultEl!=null && resultEl.isJsonObject()){
             JsonObject resultObj= resultEl.getAsJsonObject();
-            JsonArray triggerIdsArray= resultObj.get("triggerids").getAsJsonArray();
-            for (int i =0 ; i<triggerIdsArray.size(); i++){
-                triggerIdDeleted.add(triggerIdsArray.get(i).getAsString());
+            JsonArray objectIdsArray= resultObj.get(object+"ids").getAsJsonArray();
+            for (int i =0 ; i<objectIdsArray.size(); i++){
+                objectIdDeleted.add(objectIdsArray.get(i).getAsString());
             }
 
         }
-        log.debug("Deleted the following trigger ids: "+triggerIdDeleted);
-        return triggerIdDeleted;
+        log.debug("Deleted the following "+object+"ids: "+objectIdDeleted);
+        return objectIdDeleted;
+    }
+
+    public List<String> deleteTriggers(List<String> triggersIds) throws MonitoringException {
+        return delete("trigger",triggersIds);
+    }
+    public List<String> deleteItems(List<String> itemIdsToDelete) throws MonitoringException {
+        return delete("item",itemIdsToDelete);
     }
     public String createAction(String actionName,String triggerId) throws MonitoringException {
         log.debug("createAction");
@@ -138,8 +144,8 @@ public class ZabbixApiManager {
     }
 
     // check parameter at url: https://www.zabbix.com/documentation/2.2/manual/api/reference/item/object
-    public List<String> createItem(String name,Integer delay,String hostId,Integer type,Integer valuetype,String itemKey,String interfaceId) throws MonitoringException {
-        List<String> itemsIds=new ArrayList<>();
+    public String createItem(String name,Integer delay,String hostId,Integer type,Integer valuetype,String itemKey,String interfaceId) throws MonitoringException {
+        String itemsId=null;
         ZabbixItem item=new ZabbixItem(name,itemKey,hostId,type,valuetype,delay);
         item.setInterfaceId(interfaceId);
         String params= mapper.toJson(item,ZabbixItem.class);
@@ -152,13 +158,12 @@ public class ZabbixApiManager {
         if(resultEl!=null && resultEl.isJsonObject()){
             JsonObject resultObj= resultEl.getAsJsonObject();
             JsonArray itemsIdsArray= resultObj.get("itemids").getAsJsonArray();
-            for (int i =0 ; i<itemsIdsArray.size(); i++){
-                itemsIds.add(itemsIdsArray.get(i).getAsString());
-            }
-            log.debug("Created the following item ids: "+itemsIds);
+            itemsId = itemsIdsArray.get(0).getAsString();
+            log.debug("Created the following item ids: "+itemsId);
         }
-        return itemsIds;
+        return itemsId;
     }
+
     public String getHostId(String hostname) throws MonitoringException {
         String hostId="";
         String params="{\"output\":[\"hostid\"],\"filter\":{\"host\":[\""+hostname+"\"]}}";

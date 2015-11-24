@@ -1,17 +1,21 @@
 package org.openbaton.monitoring.agent.performance.management.catalogue;
 
+import org.openbaton.monitoring.agent.alarm.catalogue.PerceivedSeverity;
+
 /**
  * Created by mob on 18.11.15.
  */
 public class ThresholdDetails {
     private String function;
     private String triggerOperator;
+    private PerceivedSeverity perceivedSeverity;
     private String value;
 
     public ThresholdDetails(String function, String value, String triggerOperator) {
         this.function = function;
         this.value = value;
         this.triggerOperator = triggerOperator;
+        this.perceivedSeverity=PerceivedSeverity.INDETERMINATE;
     }
 
     public String getFunction() {
@@ -38,4 +42,11 @@ public class ThresholdDetails {
         this.value = value;
     }
 
+    public PerceivedSeverity getPerceivedSeverity() {
+        return perceivedSeverity;
+    }
+
+    public void setPerceivedSeverity(PerceivedSeverity perceivedSeverity) {
+        this.perceivedSeverity = perceivedSeverity;
+    }
 }

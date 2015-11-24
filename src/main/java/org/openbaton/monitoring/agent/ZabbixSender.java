@@ -4,9 +4,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import org.apache.http.HttpStatus;
 import org.openbaton.monitoring.agent.exceptions.MonitoringException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,34 +39,39 @@ public class ZabbixSender {
             this.zabbixPort=zabbixPort;
         }
     }
+    public synchronized HttpResponse<String> doRestCallWithJson(String url,String json,HttpMethod method,String contentType) throws UnirestException {
+        HttpResponse<String> response=null;
+        switch (method){
+            case PUT : response=Unirest.put(url).header("Content-type",contentType).header("KeepAliveTimeout","5000").body(json).asString();
+                break;
+            case POST: response=Unirest.post(url).header("Content-type",contentType).header("KeepAliveTimeout","5000").body(json).asString();
+                break;
+        }
+        return response;
+    }
 
-    public synchronized JsonObject callPost(String content, String method) throws MonitoringException {
+    public JsonObject callPost(String content, String method) throws MonitoringException {
         HttpResponse<String> jsonResponse = null;
 
-        String body= prepareJson(content,method);
+        String body = prepareJson(content, method);
         try {
-            jsonResponse = Unirest.post(zabbixURL).header("Content-type","application/json-rpc").header("KeepAliveTimeout","5000").body(body).asString();
-        } catch (UnirestException e) {
-            log.error("Post on the Zabbix server failed",e);
-        }
-        if(checkAuthorization(jsonResponse.getBody()))
-        {
-            this.TOKEN = null;
-			/*
+            jsonResponse = doRestCallWithJson(zabbixURL, body, HttpMethod.POST, "application/json-rpc");
+            if (checkAuthorization(jsonResponse.getBody())) {
+                this.TOKEN = null;
+            /*
 			 * authenticate again, because the last token is expired
 			 */
-            authenticate(zabbixIp, username, password);
-            body = prepareJson(content, method);
-            try {
-                jsonResponse = Unirest.post(zabbixURL).header("Content-type","application/json-rpc").header("KeepAliveTimeout","5000").body(body).asString();
-            } catch (UnirestException e) {
-                log.error("Post on the Zabbix server failed",e);
+                authenticate(zabbixIp, username, password);
+                body = prepareJson(content, method);
+                jsonResponse = doRestCallWithJson(zabbixURL, body, HttpMethod.POST, "application/json-rpc");
             }
+            //log.debug("Response received: " + jsonResponse);
+        } catch (UnirestException e) {
+            log.error("Post on the Zabbix server failed", e);
+            throw new MonitoringException(e.getMessage(), e);
         }
-        //log.debug("Response received: " + jsonResponse);
-
         JsonElement responseEl = mapper.fromJson(jsonResponse.getBody(), JsonObject.class);
-        if(responseEl == null || !responseEl.isJsonObject())
+        if (responseEl == null || !responseEl.isJsonObject())
             throw new MonitoringException("The json received from Zabbix Server is not a JsonObject or null");
         return responseEl.getAsJsonObject();
     }
