@@ -219,6 +219,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         triggerIdHostnames=new HashMap<>();
         pmJobs=new HashMap<>();
         thresholds=new HashMap<>();
+
         try {
             zabbixSender.authenticate();
         } catch (MonitoringException e) {
@@ -228,34 +229,6 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
 
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
-
-
-        /*List<String> hostnames= new ArrayList<>(); hostnames.add("iperf-server-390");
-        ObjectSelection resourceSelector= new ObjectSelection(hostnames);
-
-        String performanceMetric="net.tcp.listen[5001]";
-        List<String> performanceMetrics= new ArrayList<>(); performanceMetrics.add(performanceMetric);
-        try {
-            Thread.sleep(2000);
-            createPMJob(resourceSelector,performanceMetrics,null,5,10);
-            Thread.sleep(2000);
-
-            ThresholdDetails thresholdDetails= new ThresholdDetails("last(0)","0","=");
-            thresholdDetails.setPerceivedSeverity(PerceivedSeverity.MAJOR);
-            String triggerId=createThreshold(resourceSelector,performanceMetric,"|",thresholdDetails);
-            Thread.sleep(2000);
-
-            zabbixApiManager.createAction("Action on demand"+random.nextInt(100),triggerId);
-
-        } catch (MonitoringException e) {
-            log.error(e.getMessage(),e);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }*/
-
-
-        //String triggerId=createTrigger("Trigger on demand", "{Template OS Linux:system.cpu.load[percpu,avg1].last(0)}>0.6");
-        //zabbixApiManager.createAction("ZabbixAction on demand", "19961");
     }
     /**
      * terminate the scheduler safely
@@ -283,7 +256,10 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     }
 
     private void handleNotification(ZabbixNotification zabbixNotification) {
+        List<AlarmEndpoint> subscribers = getSubscribers(zabbixNotification);
 
+        if(subscribers.isEmpty())
+            return;
         //Check if the trigger is crossed for the first time
         if(isNewNotification(zabbixNotification)) {
             //TODO create Threshold crossed notification
@@ -295,8 +271,8 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
                 Alarm alarm = createAlarm(zabbixNotification);
                 AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmNotification(alarm.getTriggerId(), alarm);
                 log.debug("Sending alarm:" + alarm);
-                sendNotification(notification);
 
+                sendFaultNotification(notification,subscribers);
             }
             List<String> hostnames= new ArrayList<>();
             hostnames.add(zabbixNotification.getHostName());
@@ -310,10 +286,11 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
                 AlarmState alarmState= zabbixNotification.getTriggerStatus() == TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED;
                 AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmStateChangedNotification(zabbixNotification.getTriggerId(),alarmState);
 
-                sendNotification(notification);
+                sendFaultNotification(notification,subscribers);
             }
         }
     }
+
     private boolean isNewNotification(ZabbixNotification zabbixNotification){
         if(triggerIdHostnames.get(zabbixNotification.getTriggerId())==null)
             return true;
@@ -321,10 +298,11 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
             return true;
         return false;
     }
-    private void sendNotification(AbstractVirtualizedResourceAlarm notification) {
-        //TODO send only to subscribers with certain PerceivedSeverity and resourceId specified
 
-        for(AlarmEndpoint ae: subscriptions){
+
+    private void sendFaultNotification(AbstractVirtualizedResourceAlarm notification,List<AlarmEndpoint> subscribers) {
+
+        for(AlarmEndpoint ae: subscribers){
             try {
                 notifyFault(ae, notification);
             } catch (UnirestException e) {
@@ -332,6 +310,19 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
             }
         }
 
+    }
+
+    private List<AlarmEndpoint> getSubscribers(ZabbixNotification notification) {
+
+        List<AlarmEndpoint> subscribersForNotification = new ArrayList<>();
+
+        PerceivedSeverity notificationPerceivedSeverity = getPerceivedSeverity(notification.getTriggerSeverity());
+        for(AlarmEndpoint ae : subscriptions){
+            if(notificationPerceivedSeverity.ordinal()>=ae.getPerceivedSeverity().ordinal()){
+                subscribersForNotification.add(ae);
+            }
+        }
+        return subscribersForNotification;
     }
 
     private Alarm createAlarm(ZabbixNotification zabbixNotification) {

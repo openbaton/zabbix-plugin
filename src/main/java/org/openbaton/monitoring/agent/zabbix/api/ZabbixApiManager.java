@@ -68,7 +68,7 @@ public class ZabbixApiManager {
     public List<String> deleteItems(List<String> itemIdsToDelete) throws MonitoringException {
         return delete("item",itemIdsToDelete);
     }
-    public String createAction(String actionName,String triggerId) throws MonitoringException {
+    public String createAction( String actionName , String triggerId ) throws MonitoringException {
         log.debug("createAction");
         String actionId=null;
         ZabbixAction zabbixAction=new ZabbixAction();
