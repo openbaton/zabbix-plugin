@@ -13,12 +13,8 @@ import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.catalogue.util.IdGenerator;
 import org.openbaton.monitoring.agent.alarm.catalogue.*;
 import org.openbaton.monitoring.agent.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.interfaces.VirtualisedResourceFaultManagement;
-import org.openbaton.monitoring.agent.interfaces.VirtualisedResourcesPerformanceManagement;
-import org.openbaton.monitoring.agent.performance.management.catalogue.ResourceSelector;
-import org.openbaton.monitoring.agent.performance.management.catalogue.ThresholdDetails;
+import org.openbaton.monitoring.agent.performance.management.catalogue.*;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
-import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,17 +24,14 @@ import java.rmi.RemoteException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static com.google.common.primitives.Doubles.tryParse;
 
 /**
  * Created by mob on 22.10.15.
  */
-public class ZabbixMonitoringAgent extends MonitoringPlugin implements VirtualisedResourceFaultManagement,VirtualisedResourcesPerformanceManagement {
+public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
 
     private int historyLength;
     private int requestFrequency;
@@ -48,8 +41,10 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     private int notificationReceiverServerPort;
     private Gson mapper;
     private Random random=new Random();
-    protected Logger log = LoggerFactory.getLogger(this.getClass());
+    private Logger log = LoggerFactory.getLogger(this.getClass());
     private List<AlarmEndpoint> subscriptions;
+    private Map<String,PmJob> pmJobs;
+    private Map<String,Threshold> thresholds;
     private String type;
     private Map<String, List<String>> triggerIdHostnames;
     private LimitedQueue<State> history;
@@ -61,6 +56,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     //
 
     public ZabbixMonitoringAgent() throws RemoteException {
+        super();
         init();
         try {
             launchServer(notificationReceiverServerPort,notificationReceiverServerContext);
@@ -84,15 +80,15 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
      * The ZabbixItem's id is always null and the version 0.
      *
      */
-    @Override
+    //@Override
     public List<Item> getMeasurementResults(List<String> hostnames, List<String> metrics, String period) throws RemoteException {
 
-        List<Item> items = new LinkedList<Item>();
+        List<Item> items = new LinkedList<>();
         long currTime = System.currentTimeMillis()/1000;
         long startingTime = currTime - Long.parseLong(period); // that's the point of time where requested history starts
 
         synchronized (history) {
-            LinkedList<State> historyImportant = new LinkedList<State>();  // the part of the history which lies in the period
+            LinkedList<State> historyImportant = new LinkedList<>();  // the part of the history which lies in the period
             Iterator<State> iterator = history.descendingIterator();
 
             // get the latest history entry
@@ -161,21 +157,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         }
         return items;
     }
-
-    @Override
-    public void notifyResults() {
-
-    }
-
-    @Override
-    public String getType() {
-        return type;
-    }
-
-
-
-
-
     private Runnable updateHistory = new Runnable() {
         @Override
         public void run() {
@@ -216,6 +197,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     };
 
     private void init() throws RemoteException {
+        loadProperties();
         String zabbixIp = properties.getProperty("zabbix-ip");
         String zabbixPort = properties.getProperty("zabbix-port");
         String username = properties.getProperty("user");
@@ -235,7 +217,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
         subscriptions=new ArrayList<>();
         subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"http://localhost:9000/alarm/vr",PerceivedSeverity.MAJOR));
         triggerIdHostnames=new HashMap<>();
-
+        pmJobs=new HashMap<>();
+        thresholds=new HashMap<>();
         try {
             zabbixSender.authenticate();
         } catch (MonitoringException e) {
@@ -248,7 +231,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
 
         /*List<String> hostnames= new ArrayList<>(); hostnames.add("iperf-server-390");
-        ResourceSelector resourceSelector= new ResourceSelector(hostnames);
+        ObjectSelection resourceSelector= new ObjectSelection(hostnames);
 
         String performanceMetric="net.tcp.listen[5001]";
         List<String> performanceMetrics= new ArrayList<>(); performanceMetrics.add(performanceMetric);
@@ -480,35 +463,52 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     }
 
     @Override
-    public List<String> createPMJob(ResourceSelector resourceSelector, List<String> performanceMetrics, List<String> performanceMetricGroup, Integer collectionPeriod,
-                            Integer reportingPeriod) throws MonitoringException {
-        if(resourceSelector==null || resourceSelector.getHostnames().isEmpty())
-            throw new MonitoringException("The resourceSelector is null or empty");
+    public String createPMJob(ObjectSelection objectSelection, List<String> performanceMetrics, List<String> performanceMetricGroup, Integer collectionPeriod,
+                                    Integer reportingPeriod) throws MonitoringException {
+        if(objectSelection ==null || objectSelection.getObjectInstanceIds().isEmpty())
+            throw new MonitoringException("The objectSelection is null or empty");
         if( performanceMetrics==null && performanceMetricGroup==null)
             throw new MonitoringException("At least performanceMetrics or performanceMetricGroup need to be present");
         if(collectionPeriod<0 || reportingPeriod<0)
             throw new MonitoringException("The collectionPeriod or reportingPeriod is negative");
-        List<String> pmJobIds = new ArrayList<>();
+
+        PmJob pmJob=null;
         if(performanceMetrics!=null) {
             if(performanceMetrics.isEmpty())
                 throw new MonitoringException("PerformanceMetrics is null");
+            pmJob = new PmJob(objectSelection, collectionPeriod);
 
-            List<String> hostnames = resourceSelector.getHostnames();
-            for (String hostname : hostnames) {
+            for(String hostname : objectSelection.getObjectInstanceIds()) {
                 String hostId = zabbixApiManager.getHostId(hostname);
                 String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
                 for (String performanceMetric : performanceMetrics) {
                     String itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, 0, 3, performanceMetric, interfaceId);
-                    pmJobIds.add(itemId);
+                    pmJob.addPerformanceMetric(itemId, performanceMetric);
                 }
             }
         }
-        return pmJobIds;
+        pmJobs.put(pmJob.getPmjobId(),pmJob);
+        return pmJob.getPmjobId();
     }
 
     @Override
-    public List<String> deletePMJob(List<String> itemIdsToDelete) throws MonitoringException {
-        return zabbixApiManager.deleteItems(itemIdsToDelete);
+    public List<String> deletePMJob(List<String> pmJobIdsToDelete) throws MonitoringException {
+        if(pmJobIdsToDelete == null)
+            throw new MonitoringException("The list of pmJob ids is null");
+        if(pmJobIdsToDelete.isEmpty())
+            throw new MonitoringException("The list of pmJob is empty");
+        List<String> deletedPmJobId=new ArrayList<>();
+        for(String pmJobId : pmJobIdsToDelete){
+            PmJob pmJob = pmJobs.get(pmJobId);
+            if(pmJob!=null){
+                List<String> itemIds= new ArrayList<>();
+                itemIds.addAll(pmJob.getPerformanceMentricIds());
+                zabbixApiManager.deleteItems(itemIds);
+                deletedPmJobId.add(pmJobId);
+            }
+
+        }
+        return deletedPmJobId;
     }
 
     @Override
@@ -527,16 +527,21 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
     }
 
     @Override
-    public String createThreshold(ResourceSelector resourceSelector, String performanceMetric, String thresholdType, ThresholdDetails thresholdDetails) throws MonitoringException {
+    public String createThreshold(List<ObjectSelection> objectSelectors, String performanceMetric, ThresholdType thresholdType, ThresholdDetails thresholdDetails) throws MonitoringException {
 
-        if(resourceSelector==null || resourceSelector.getHostnames().isEmpty())
-            throw new MonitoringException("The resourceSelector is null or empty");
+        if(objectSelectors ==null || objectSelectors.isEmpty())
+            throw new MonitoringException("The objectSelectors is null or empty");
         if( (performanceMetric==null && performanceMetric.isEmpty()))
             throw new MonitoringException("The performanceMetric needs to be present");
         if(thresholdDetails==null)
             throw new MonitoringException("The thresholdDetails is null");
+        //TODO investigate which are the cases where we need more than one objectSelector
+        //Now we use only one objectSelector
 
-        List<String> hostnames= resourceSelector.getHostnames();
+
+        List<String> hostnames= objectSelectors.get(0).getObjectInstanceIds();
+
+
         String firstHostname= hostnames.get(0);
         String thresholdExpression="";
         for(String hostname: hostnames){
@@ -552,12 +557,21 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin implements Virtualis
 
         String triggerId = zabbixApiManager.createTrigger("Threshold on demand "+random.nextInt(100),thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
 
-        return triggerId;
+        Threshold threshold = new Threshold(objectSelectors,performanceMetric,thresholdType,thresholdDetails);
+        threshold.setThresholdId(triggerId);
+
+        thresholds.put(threshold.getThresholdId(),threshold);
+
+        return threshold.getThresholdId();
     }
 
     @Override
     public List<String> deleteThreshold(List<String> thresholdIds) throws MonitoringException {
-        return zabbixApiManager.deleteTriggers(thresholdIds);
+        List<String> triggerIdDeleted = zabbixApiManager.deleteTriggers(thresholdIds);
+        for(String triggerId : triggerIdDeleted){
+            thresholds.remove(triggerId);
+        }
+        return triggerIdDeleted;
     }
 
     @Override
