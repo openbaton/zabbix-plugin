@@ -54,6 +54,45 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     private HttpServer server;
     private MyHandler myHandler;
     //
+    private Runnable updateHistory = new Runnable() {
+        @Override
+        public void run() {
+            JsonObject responseObj = null;
+            String params = "{'output': ['name'], 'selectItems': ['key_', 'lastvalue']}";
+            try {
+                responseObj = zabbixSender.callPost(params, "host.get");
+            } catch (MonitoringException e) {
+                log.error("Exception while updating hosts:" + e.getMessage());
+            }
+            long timestamp = System.currentTimeMillis()/1000;
+            JsonArray hostArray = responseObj.get("result").getAsJsonArray();
+            Iterator<JsonElement> iterator = hostArray.iterator();
+
+
+            // String is the hostname
+            Map<String, HistoryObject> snapshot = new HashMap<String, HistoryObject>();
+            while (iterator.hasNext()) {
+                JsonObject jsonObj = iterator.next().getAsJsonObject();
+                String hostName = jsonObj.getAsJsonObject().get("name").getAsString();
+                JsonArray itemArray = jsonObj.get("items").getAsJsonArray();
+                Iterator<JsonElement> itemIterator = itemArray.iterator();
+                HistoryObject ho = new HistoryObject();
+                ho.setHostId(jsonObj.get("hostid").getAsString());
+                // add the values to the HistoryObject
+                while (itemIterator.hasNext()) {
+                    JsonObject item = itemIterator.next().getAsJsonObject();
+                    ho.setMeasurement(item.get("key_").getAsString(), item.get("lastvalue").getAsString());
+                }
+
+                snapshot.put(hostName, ho);
+            }
+            State state = new State(timestamp, snapshot);
+            synchronized (history) {
+                history.add(state);
+            }
+        }
+    };
+
 
     public ZabbixMonitoringAgent() throws RemoteException {
         super();
@@ -157,44 +196,6 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         }
         return items;
     }
-    private Runnable updateHistory = new Runnable() {
-        @Override
-        public void run() {
-            JsonObject responseObj = null;
-            String params = "{'output': ['name'], 'selectItems': ['key_', 'lastvalue']}";
-            try {
-                responseObj = zabbixSender.callPost(params, "host.get");
-            } catch (MonitoringException e) {
-                log.error("Exception while updating hosts:" + e.getMessage());
-            }
-            long timestamp = System.currentTimeMillis()/1000;
-            JsonArray hostArray = responseObj.get("result").getAsJsonArray();
-            Iterator<JsonElement> iterator = hostArray.iterator();
-
-
-            // String is the hostname
-            Map<String, HistoryObject> snapshot = new HashMap<String, HistoryObject>();
-            while (iterator.hasNext()) {
-                JsonObject jsonObj = iterator.next().getAsJsonObject();
-                String hostName = jsonObj.getAsJsonObject().get("name").getAsString();
-                JsonArray itemArray = jsonObj.get("items").getAsJsonArray();
-                Iterator<JsonElement> itemIterator = itemArray.iterator();
-                HistoryObject ho = new HistoryObject();
-                ho.setHostId(jsonObj.get("hostid").getAsString());
-                // add the values to the HistoryObject
-                while (itemIterator.hasNext()) {
-                    JsonObject item = itemIterator.next().getAsJsonObject();
-                    ho.setMeasurement(item.get("key_").getAsString(), item.get("lastvalue").getAsString());
-                }
-
-                snapshot.put(hostName, ho);
-            }
-            State state = new State(timestamp, snapshot);
-            synchronized (history) {
-                history.add(state);
-            }
-        }
-    };
 
     private void init() throws RemoteException {
         loadProperties();

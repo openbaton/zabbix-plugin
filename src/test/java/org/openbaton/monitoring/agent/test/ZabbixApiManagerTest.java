@@ -39,6 +39,7 @@ public class ZabbixApiManagerTest {
 
     @Test
     public void createAndDeleteActionAndTriggerTest() throws MonitoringException {
+
         String triggerId = zabbixApiManager.createTrigger("Test trigger","{iperf-server-536:system.cpu.load[percpu,avg1].last(0)}>0.45",3/*average*/);
 
         String actionId = zabbixApiManager.createAction("Test action", triggerId);
