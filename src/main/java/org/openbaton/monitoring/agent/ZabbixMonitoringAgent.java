@@ -47,6 +47,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     private Map<String,Threshold> thresholds;
     private String type;
     private Map<String, List<String>> triggerIdHostnames;
+    private Map<String, String> triggerIdActionIdMap;
     private LimitedQueue<State> history;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
@@ -220,7 +221,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         triggerIdHostnames=new HashMap<>();
         pmJobs=new HashMap<>();
         thresholds=new HashMap<>();
-
+        triggerIdActionIdMap=new HashMap<>();
         try {
             zabbixSender.authenticate();
         } catch (MonitoringException e) {
@@ -261,6 +262,9 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
 
         if(subscribers.isEmpty())
             return;
+
+
+
         //Check if the trigger is crossed for the first time
         if(isNewNotification(zabbixNotification)) {
             //TODO create Threshold crossed notification
@@ -349,6 +353,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         Identifier of the affected managed Object. The Managed Objects for this information element
         will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface. 
         */
+        //TODO handle a notification fired by a threshold on more than one hostname
         alarm.setResourceId(zabbixNotification.getHostName());
 
         //Perceived severity of the managed object failure
@@ -539,20 +544,25 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         for(String hostname: hostnames){
             String singleHostExpression="";
             if(!hostname.equals(firstHostname))
-                singleHostExpression+=thresholdType;
+                singleHostExpression+="&";
             singleHostExpression+="{"+hostname+":"+performanceMetric;
             if(thresholdDetails.getFunction() != null && !thresholdDetails.getFunction().isEmpty())
                 singleHostExpression+="."+thresholdDetails.getFunction();
             singleHostExpression+="}"+thresholdDetails.getTriggerOperator()+thresholdDetails.getValue();
             thresholdExpression+=singleHostExpression;
         }
-
-        String triggerId = zabbixApiManager.createTrigger("Threshold on demand "+random.nextInt(100),thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
+        log.debug("Threshold expression: "+thresholdExpression);
+        String thresholdName =  "Threshold on demand "+random.nextInt(100);
+        String triggerId = zabbixApiManager.createTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
 
         Threshold threshold = new Threshold(objectSelectors,performanceMetric,thresholdType,thresholdDetails);
         threshold.setThresholdId(triggerId);
 
         thresholds.put(threshold.getThresholdId(),threshold);
+
+        //create an action to be notified when this threshold is crossed
+        String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", triggerId);
+        triggerIdActionIdMap.put(triggerId,actionId);
 
         return threshold.getThresholdId();
     }
@@ -560,10 +570,37 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     @Override
     public List<String> deleteThreshold(List<String> thresholdIds) throws MonitoringException {
         List<String> triggerIdDeleted = zabbixApiManager.deleteTriggers(thresholdIds);
+        if(!triggerIdDeleted.containsAll(thresholdIds)){
+            log.warn("Triggers deleted: "+triggerIdDeleted+" are less than the triggers to delete: "+thresholdIds);
+        }
+        //Here we are going to delete the actions linked with the triggers effectively DELETED
+        List<String> actionIdsToDelete = getActions(triggerIdDeleted);
+        List<String> actionIdDeleted = zabbixApiManager.deleteActions(actionIdsToDelete);
+        if(!actionIdsToDelete.containsAll(actionIdDeleted)){
+            log.warn("Actions deleted: "+actionIdDeleted+" are less than the actions to delete: "+actionIdsToDelete);
+        }
+
+        //Update the local state
         for(String triggerId : triggerIdDeleted){
             thresholds.remove(triggerId);
+            String actionId=triggerIdActionIdMap.get(triggerId);
+            if(!actionIdDeleted.contains(actionId))
+                log.warn("The action with id:"+actionId+" referred to the trigger id: "+triggerId+" needs to be removed manually on zabbix");
+            triggerIdActionIdMap.remove(triggerId);
         }
+
         return triggerIdDeleted;
+    }
+
+    private List<String> getActions(List<String> triggerIdDeleted) {
+        List<String> result = new ArrayList<>();
+        for(String triggerId : triggerIdDeleted){
+            String actionId = triggerIdActionIdMap.get(triggerId);
+            if(actionId!=null){
+                result.add(actionId);
+            }
+        }
+        return result;
     }
 
     @Override
