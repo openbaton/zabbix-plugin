@@ -1,5 +1,8 @@
 package org.openbaton.monitoring.agent.alarm.catalogue;
 
+import org.openbaton.catalogue.mano.common.monitoring.AbstractVirtualizedResourceAlarm;
+import org.openbaton.catalogue.mano.common.monitoring.AlarmState;
+
 /**
  * Created by mob on 28.10.15.
  */

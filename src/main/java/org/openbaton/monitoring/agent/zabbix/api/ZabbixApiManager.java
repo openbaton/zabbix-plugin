@@ -1,8 +1,8 @@
 package org.openbaton.monitoring.agent.zabbix.api;
 
 import com.google.gson.*;
+import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixSender;
-import org.openbaton.monitoring.agent.exceptions.MonitoringException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

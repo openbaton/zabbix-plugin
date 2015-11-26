@@ -23,7 +23,7 @@ mainClassName = 'org.openbaton.monitoring.agent.Starter'
 
 
 dependencies {
-    compile 'org.openbaton:plugin-sdk:0.14'
+    compile 'org.openbaton:plugin-sdk:0.15-SNAPSHOT'
 
     compile 'com.google.code.gson:gson:2.3.1'
     compile 'com.google.guava:guava:19.0-rc2'

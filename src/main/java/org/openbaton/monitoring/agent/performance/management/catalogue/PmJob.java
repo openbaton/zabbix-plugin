@@ -1,5 +1,6 @@
 package org.openbaton.monitoring.agent.performance.management.catalogue;
 
+import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
 import org.openbaton.catalogue.util.IdGenerator;
 
 import java.util.HashMap;

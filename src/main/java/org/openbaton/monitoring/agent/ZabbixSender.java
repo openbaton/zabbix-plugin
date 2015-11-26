@@ -8,8 +8,7 @@ import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import org.apache.http.HttpStatus;
-import org.openbaton.monitoring.agent.exceptions.MonitoringException;
+import org.openbaton.exceptions.MonitoringException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

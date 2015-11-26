@@ -3,7 +3,6 @@ package org.openbaton.monitoring.agent.test;
 import org.junit.Before;
 import org.junit.Test;
 import org.openbaton.monitoring.agent.ZabbixSender;
-import org.openbaton.monitoring.agent.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
 import org.springframework.util.Assert;
 

@@ -8,13 +8,15 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.openbaton.catalogue.mano.common.monitoring.*;
 import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.catalogue.util.IdGenerator;
+import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.alarm.catalogue.*;
-import org.openbaton.monitoring.agent.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.performance.management.catalogue.*;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
+import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,10 +33,11 @@ import static com.google.common.primitives.Doubles.tryParse;
 /**
  * Created by mob on 22.10.15.
  */
-public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
+public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private int historyLength;
     private int requestFrequency;
+    private Properties properties;
     private ZabbixSender zabbixSender;
     private ZabbixApiManager zabbixApiManager;
     private String notificationReceiverServerContext;
@@ -121,7 +124,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
      *
      */
     //@Override
-    public List<Item> getMeasurementResults(List<String> hostnames, List<String> metrics, String period) throws RemoteException {
+    public List<Item> getMeasurementResults(List<String> hostnames, List<String> metrics, String period) throws MonitoringException {
 
         List<Item> items = new LinkedList<>();
         long currTime = System.currentTimeMillis()/1000;
@@ -137,7 +140,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
                 historyImportant.add(entry);
                 // check if the period is too long
                 if (!iterator.hasNext() && entry.getTime() > startingTime)
-                    throw new RemoteException("The period is too long for the existing history.");
+                    throw new MonitoringException("The period is too long for the existing history.");
             }
 
             while (iterator.hasNext()) {
@@ -147,13 +150,13 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
                 }
                 historyImportant.add(entry);
                 if (!iterator.hasNext() && entry.getTime() > startingTime)
-                    throw new RemoteException("The period is too long for the existing history.");
+                    throw new MonitoringException("The period is too long for the existing history.");
             }
 
             for (String host : hostnames) {
                 // check if the host exists in the latest state of history
                 if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
-                    throw new RemoteException("The hostname " + host + " does not exist.");
+                    throw new MonitoringException("The hostname " + host + " does not exist.");
 
                 for (String metric : metrics) {
                     Iterator<State> historyIterator = historyImportant.iterator();
@@ -164,7 +167,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
 
                     HistoryObject hObj = historyIterator.next().getHostsHistory().get(host);
                     if (!hObj.keyExists(metric))
-                        throw new RemoteException("The metric " + metric + " does not exist for host " + host + ".");
+                        throw new MonitoringException("The metric " + metric + " does not exist for host " + host + ".");
 
                     item.setHostId(hObj.getHostId());
 
@@ -176,11 +179,11 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
                         while (historyIterator.hasNext()) {
                             Map<String, HistoryObject> hostsAndHistory = historyIterator.next().getHostsHistory();
                             if (!hostsAndHistory.containsKey(host)) {
-                                throw new RemoteException("The period is too long for host " + host +
+                                throw new MonitoringException("The period is too long for host " + host +
                                         " because he just started existing inside the specified time frame.");
                             }
                             if (!hostsAndHistory.get(host).keyExists(metric)) {
-                                throw new RemoteException("The metric " + metric +
+                                throw new MonitoringException("The metric " + metric +
                                         "did not exist at every time in the specified period for host " + host + ".");
                             }
                             avg += Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
@@ -197,7 +200,26 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         }
         return items;
     }
-
+    /*private void loadProperties() {
+        properties = new Properties();
+        log.debug("Loading properties");
+        try {
+            properties.load(this.getClass().getResourceAsStream("/plugin.conf.properties"));
+            if (properties.getProperty("external-properties-file") != null) {
+                File externalPropertiesFile = new File(properties.getProperty("external-properties-file"));
+                if (externalPropertiesFile.exists()) {
+                    log.debug("Loading properties from external-properties-file: " + properties.getProperty("external-properties-file"));
+                    InputStream is = new FileInputStream(externalPropertiesFile);
+                    properties.load(is);
+                } else {
+                    log.debug("external-properties-file: " + properties.getProperty("external-properties-file") + " doesn't exist");
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        log.debug("Loaded properties: " + properties);
+    }*/
     private void init() throws RemoteException {
         loadProperties();
         String zabbixIp = properties.getProperty("zabbix-ip");
@@ -310,7 +332,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
         for(AlarmEndpoint ae: subscribers){
             try {
                 notifyFault(ae, notification);
-            } catch (UnirestException e) {
+            } catch (MonitoringException e) {
                 log.error(e.getMessage(),e);
             }
         }
@@ -417,7 +439,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     }
 
     @Override
-    public String subscribe(AlarmEndpoint endpoint) {
+    public String subscribeForFault(AlarmEndpoint endpoint) throws org.openbaton.exceptions.MonitoringException {
         String subscriptionId=IdGenerator.createId();
         endpoint.setId(subscriptionId);
         subscriptions.add(endpoint);
@@ -425,25 +447,29 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     }
 
     @Override
-    public void unsubscribe(String alarmEndpointId) {
+    public String unsubscribeForFault(String alarmEndpointId) {
         Iterator<AlarmEndpoint> iterator = subscriptions.iterator();
         while (iterator.hasNext()){
             AlarmEndpoint currentAlarmEndpoint = iterator.next();
             if(currentAlarmEndpoint.getId().equals(alarmEndpointId)){
                 iterator.remove();
-                break;
+                return alarmEndpointId;
             }
         }
+        return "";
     }
 
     @Override
-    public void notifyFault(AlarmEndpoint endpoint, AbstractVirtualizedResourceAlarm event) throws UnirestException {
+    public void notifyFault(AlarmEndpoint endpoint, AbstractVirtualizedResourceAlarm event) throws MonitoringException {
         HttpResponse<String> response = null;
+        try {
         if(event instanceof VirtualizedResourceAlarmNotification){
             VirtualizedResourceAlarmNotification vran = (VirtualizedResourceAlarmNotification) event;
             String jsonAlarm = mapper.toJson(vran,VirtualizedResourceAlarmNotification.class);
             log.debug("Sending VirtualizedResourceAlarmNotification: "+jsonAlarm +" to: "+endpoint.getEndpoint());
-            response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
+
+                response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
+
         }
         else if (event instanceof VirtualizedResourceAlarmStateChangedNotification){
             VirtualizedResourceAlarmStateChangedNotification vrascn= (VirtualizedResourceAlarmStateChangedNotification) event;
@@ -452,6 +478,11 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
             response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.PUT,"application/json");
         }
         log.debug("Response is:"+response.getBody());
+        } catch (UnirestException e) {
+            throw new MonitoringException(e);
+        }catch (Exception e){
+            throw new MonitoringException(e);
+        }
     }
 
     @Override
@@ -509,7 +540,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
     }
 
     @Override
-    public List<Item> queryPMJob(List<String> hostnames, List<String> metrics, String period) throws RemoteException {
+    public List<Item> queryPMJob(List<String> hostnames, List<String> metrics, String period) throws MonitoringException {
        return getMeasurementResults(hostnames,metrics,period);
     }
 
@@ -532,12 +563,9 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
             throw new MonitoringException("The performanceMetric needs to be present");
         if(thresholdDetails==null)
             throw new MonitoringException("The thresholdDetails is null");
-        //TODO investigate which are the cases where we need more than one objectSelector
+        //TODO Investigate which are the cases where we need more than one objectSelector
         //Now we use only one objectSelector
-
-
         List<String> hostnames= objectSelectors.get(0).getObjectInstanceIds();
-
 
         String firstHostname= hostnames.get(0);
         String thresholdExpression="";
@@ -585,7 +613,7 @@ public class ZabbixMonitoringAgent extends AmpqMonitoringPlugin {
             thresholds.remove(triggerId);
             String actionId=triggerIdActionIdMap.get(triggerId);
             if(!actionIdDeleted.contains(actionId))
-                log.warn("The action with id:"+actionId+" referred to the trigger id: "+triggerId+" needs to be removed manually on zabbix");
+                log.warn("The action with id:" + actionId + " referred to the trigger id: " + triggerId + " needs to be removed manually on zabbix");
             triggerIdActionIdMap.remove(triggerId);
         }
 

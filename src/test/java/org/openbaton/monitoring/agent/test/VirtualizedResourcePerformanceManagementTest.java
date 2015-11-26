@@ -4,10 +4,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
-import org.openbaton.monitoring.agent.alarm.catalogue.PerceivedSeverity;
-import org.openbaton.monitoring.agent.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.performance.management.catalogue.ObjectSelection;
-import org.openbaton.monitoring.agent.performance.management.catalogue.ThresholdDetails;
 import org.springframework.util.Assert;
 
 import java.rmi.RemoteException;
@@ -27,7 +23,7 @@ public class VirtualizedResourcePerformanceManagementTest {
         Thread.sleep(3000);
     }
 
-    /*@Test
+    @Test
     public void creteAndDeletePMJobTest() throws MonitoringException {
         ObjectSelection objectSelection = getObjectSelector();
         List<String> performanceMetrics=getPerformanceMetrics();
@@ -40,7 +36,7 @@ public class VirtualizedResourcePerformanceManagementTest {
         List<String> pmJobIdDeleted= zabbixMonitoringAgent.deletePMJob(pmJobIdToDelete);
 
         Assert.isTrue(pmJobIdDeleted.get(0).equals(pmJobId));
-    }*/
+    }
 
     @Test
     public void createAndDeleteThresholdTest() throws MonitoringException {
@@ -51,11 +47,11 @@ public class VirtualizedResourcePerformanceManagementTest {
 
         String thresholdId = zabbixMonitoringAgent.createThreshold(objectSelectors,"net.tcp.listen[5001]",null,thresholdDetails);
 
-        /*List<String> thresholdIdsToDelete=new ArrayList<>();
+        List<String> thresholdIdsToDelete=new ArrayList<>();
         thresholdIdsToDelete.add(thresholdId);
 
         List<String> thresholdIdsDeleted = zabbixMonitoringAgent.deleteThreshold(thresholdIdsToDelete);
-        Assert.isTrue(thresholdId.equals(thresholdIdsDeleted.get(0)));*/
+        Assert.isTrue(thresholdId.equals(thresholdIdsDeleted.get(0)));
     }
 
     private ObjectSelection getObjectSelector(){
@@ -65,11 +61,11 @@ public class VirtualizedResourcePerformanceManagementTest {
         return objectSelection;
     }
 
-    /*private List<String> getPerformanceMetrics(){
+    private List<String> getPerformanceMetrics(){
         List<String> performanceMetrics= new ArrayList<>();
         performanceMetrics.add("vfs.file.regmatch[/tmp/app.log,error]");
         return performanceMetrics;
-    }*/
+    }
 
     @After
     public void stopZabbixMonitoringAgent(){
