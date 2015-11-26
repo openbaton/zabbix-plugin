@@ -3,6 +3,10 @@ package org.openbaton.monitoring.agent.test;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
+import org.openbaton.catalogue.mano.common.monitoring.PerceivedSeverity;
+import org.openbaton.catalogue.mano.common.monitoring.ThresholdDetails;
+import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
 import org.springframework.util.Assert;
 
