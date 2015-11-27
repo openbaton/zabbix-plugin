@@ -165,7 +165,8 @@ public class ZabbixApiManager {
             JsonArray itemsIdsArray= resultObj.get("itemids").getAsJsonArray();
             itemsId = itemsIdsArray.get(0).getAsString();
             log.debug("Created the following item ids: "+itemsId);
-        }
+        } else throw new MonitoringException("Unknown response from zabbix server: "+responseObj);
+
         return itemsId;
     }
 

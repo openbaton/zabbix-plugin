@@ -72,7 +72,13 @@ public class ZabbixSender {
         JsonElement responseEl = mapper.fromJson(jsonResponse.getBody(), JsonObject.class);
         if (responseEl == null || !responseEl.isJsonObject())
             throw new MonitoringException("The json received from Zabbix Server is not a JsonObject or null");
-        return responseEl.getAsJsonObject();
+        JsonObject responseObj= responseEl.getAsJsonObject();
+
+        if(responseObj.get("error")!=null){
+            JsonObject errorObj=(JsonObject) responseObj.get("error");
+            throw new MonitoringException(errorObj.get("message").getAsString()+" "+errorObj.get("data").getAsString());
+        }
+        return responseObj;
     }
 
     private String prepareJson (String content, String method){

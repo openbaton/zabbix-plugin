@@ -37,7 +37,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private int historyLength;
     private int requestFrequency;
-    private Properties properties;
     private ZabbixSender zabbixSender;
     private ZabbixApiManager zabbixApiManager;
     private String notificationReceiverServerContext;
@@ -200,32 +199,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
         return items;
     }
-    /*private void loadProperties() {
-        properties = new Properties();
-        log.debug("Loading properties");
-        try {
-            properties.load(this.getClass().getResourceAsStream("/plugin.conf.properties"));
-            if (properties.getProperty("external-properties-file") != null) {
-                File externalPropertiesFile = new File(properties.getProperty("external-properties-file"));
-                if (externalPropertiesFile.exists()) {
-                    log.debug("Loading properties from external-properties-file: " + properties.getProperty("external-properties-file"));
-                    InputStream is = new FileInputStream(externalPropertiesFile);
-                    properties.load(is);
-                } else {
-                    log.debug("external-properties-file: " + properties.getProperty("external-properties-file") + " doesn't exist");
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        log.debug("Loaded properties: " + properties);
-    }*/
+
     private void init() throws RemoteException {
         loadProperties();
         String zabbixIp = properties.getProperty("zabbix-ip");
         String zabbixPort = properties.getProperty("zabbix-port");
-        String username = properties.getProperty("user");
-        String password = properties.getProperty("password");
+        String username = properties.getProperty("user-zbx");
+        String password = properties.getProperty("password-zbx");
         zabbixSender = new ZabbixSender(zabbixIp,zabbixPort,username,password);
         zabbixApiManager= new ZabbixApiManager(zabbixSender);
         String nrsp=properties.getProperty("notification-receiver-server-port","8010");
@@ -282,10 +262,10 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private void handleNotification(ZabbixNotification zabbixNotification) {
         List<AlarmEndpoint> subscribers = getSubscribers(zabbixNotification);
 
-        if(subscribers.isEmpty())
+        if(subscribers.isEmpty()){
+            log.debug("No subscribers for this notification");
             return;
-
-
+        }
 
         //Check if the trigger is crossed for the first time
         if(isNewNotification(zabbixNotification)) {
@@ -439,7 +419,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
 
     @Override
-    public String subscribeForFault(AlarmEndpoint endpoint) throws org.openbaton.exceptions.MonitoringException {
+    public String subscribeForFault(AlarmEndpoint endpoint) throws MonitoringException {
         String subscriptionId=IdGenerator.createId();
         endpoint.setId(subscriptionId);
         subscriptions.add(endpoint);
@@ -499,21 +479,24 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             throw new MonitoringException("At least performanceMetrics or performanceMetricGroup need to be present");
         if(collectionPeriod<0 || reportingPeriod<0)
             throw new MonitoringException("The collectionPeriod or reportingPeriod is negative");
+        PmJob pmJob = null;
+        try {
+            if (performanceMetrics != null) {
+                if (performanceMetrics.isEmpty())
+                    throw new MonitoringException("PerformanceMetrics is null");
+                pmJob = new PmJob(objectSelection, collectionPeriod);
 
-        PmJob pmJob=null;
-        if(performanceMetrics!=null) {
-            if(performanceMetrics.isEmpty())
-                throw new MonitoringException("PerformanceMetrics is null");
-            pmJob = new PmJob(objectSelection, collectionPeriod);
-
-            for(String hostname : objectSelection.getObjectInstanceIds()) {
-                String hostId = zabbixApiManager.getHostId(hostname);
-                String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
-                for (String performanceMetric : performanceMetrics) {
-                    String itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, 0, 3, performanceMetric, interfaceId);
-                    pmJob.addPerformanceMetric(itemId, performanceMetric);
+                for (String hostname : objectSelection.getObjectInstanceIds()) {
+                    String hostId = zabbixApiManager.getHostId(hostname);
+                    String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+                    for (String performanceMetric : performanceMetrics) {
+                        String itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, 0, 3, performanceMetric, interfaceId);
+                        pmJob.addPerformanceMetric(itemId, performanceMetric);
+                    }
                 }
             }
+        }catch (Exception e){
+            throw new MonitoringException("The Pm job cannot be created: "+e.getMessage(),e);
         }
         pmJobs.put(pmJob.getPmjobId(),pmJob);
         return pmJob.getPmjobId();
@@ -526,15 +509,20 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         if(pmJobIdsToDelete.isEmpty())
             throw new MonitoringException("The list of pmJob is empty");
         List<String> deletedPmJobId=new ArrayList<>();
-        for(String pmJobId : pmJobIdsToDelete){
-            PmJob pmJob = pmJobs.get(pmJobId);
-            if(pmJob!=null){
-                List<String> itemIds= new ArrayList<>();
-                itemIds.addAll(pmJob.getPerformanceMentricIds());
-                zabbixApiManager.deleteItems(itemIds);
-                deletedPmJobId.add(pmJobId);
-            }
+        try {
 
+            for (String pmJobId : pmJobIdsToDelete) {
+                PmJob pmJob = pmJobs.get(pmJobId);
+                if (pmJob != null) {
+                    List<String> itemIds = new ArrayList<>();
+                    itemIds.addAll(pmJob.getPerformanceMentricIds());
+                    zabbixApiManager.deleteItems(itemIds);
+                    deletedPmJobId.add(pmJobId);
+                }
+
+            }
+        }catch (Exception e){
+            throw new MonitoringException("The Pm job cannot be deleted: "+e.getMessage(),e);
         }
         return deletedPmJobId;
     }
@@ -555,68 +543,75 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
 
     @Override
-    public String createThreshold(List<ObjectSelection> objectSelectors, String performanceMetric, ThresholdType thresholdType, ThresholdDetails thresholdDetails) throws MonitoringException {
+    public String createThreshold(ObjectSelection objectSelector, String performanceMetric, ThresholdType thresholdType, ThresholdDetails thresholdDetails) throws MonitoringException {
 
-        if(objectSelectors ==null || objectSelectors.isEmpty())
-            throw new MonitoringException("The objectSelectors is null or empty");
+        if(objectSelector ==null)
+            throw new MonitoringException("The objectSelector is null or empty");
         if( (performanceMetric==null && performanceMetric.isEmpty()))
             throw new MonitoringException("The performanceMetric needs to be present");
         if(thresholdDetails==null)
             throw new MonitoringException("The thresholdDetails is null");
         //TODO Investigate which are the cases where we need more than one objectSelector
         //Now we use only one objectSelector
-        List<String> hostnames= objectSelectors.get(0).getObjectInstanceIds();
+        List<String> hostnames= objectSelector.getObjectInstanceIds();
+        Threshold threshold=null;
+        try {
+            String firstHostname = hostnames.get(0);
+            String thresholdExpression = "";
+            for (String hostname : hostnames) {
+                String singleHostExpression = "";
+                if (!hostname.equals(firstHostname))
+                    singleHostExpression += "&";
+                singleHostExpression += "{" + hostname + ":" + performanceMetric;
+                if (thresholdDetails.getFunction() != null && !thresholdDetails.getFunction().isEmpty())
+                    singleHostExpression += "." + thresholdDetails.getFunction();
+                singleHostExpression += "}" + thresholdDetails.getTriggerOperator() + thresholdDetails.getValue();
+                thresholdExpression += singleHostExpression;
+            }
+            log.debug("Threshold expression: " + thresholdExpression);
+            String thresholdName = "Threshold on demand " + random.nextInt(100);
+            String triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
 
-        String firstHostname= hostnames.get(0);
-        String thresholdExpression="";
-        for(String hostname: hostnames){
-            String singleHostExpression="";
-            if(!hostname.equals(firstHostname))
-                singleHostExpression+="&";
-            singleHostExpression+="{"+hostname+":"+performanceMetric;
-            if(thresholdDetails.getFunction() != null && !thresholdDetails.getFunction().isEmpty())
-                singleHostExpression+="."+thresholdDetails.getFunction();
-            singleHostExpression+="}"+thresholdDetails.getTriggerOperator()+thresholdDetails.getValue();
-            thresholdExpression+=singleHostExpression;
+            threshold = new Threshold(objectSelector, performanceMetric, thresholdType, thresholdDetails);
+            threshold.setThresholdId(triggerId);
+
+            thresholds.put(threshold.getThresholdId(), threshold);
+
+            //create an action to be notified when this threshold is crossed
+            String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", triggerId);
+            triggerIdActionIdMap.put(triggerId, actionId);
+        }catch (Exception e){
+            throw new MonitoringException("The threshold cannot be created: "+e.getMessage(),e);
         }
-        log.debug("Threshold expression: "+thresholdExpression);
-        String thresholdName =  "Threshold on demand "+random.nextInt(100);
-        String triggerId = zabbixApiManager.createTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
-
-        Threshold threshold = new Threshold(objectSelectors,performanceMetric,thresholdType,thresholdDetails);
-        threshold.setThresholdId(triggerId);
-
-        thresholds.put(threshold.getThresholdId(),threshold);
-
-        //create an action to be notified when this threshold is crossed
-        String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", triggerId);
-        triggerIdActionIdMap.put(triggerId,actionId);
-
         return threshold.getThresholdId();
     }
 
     @Override
     public List<String> deleteThreshold(List<String> thresholdIds) throws MonitoringException {
-        List<String> triggerIdDeleted = zabbixApiManager.deleteTriggers(thresholdIds);
-        if(!triggerIdDeleted.containsAll(thresholdIds)){
-            log.warn("Triggers deleted: "+triggerIdDeleted+" are less than the triggers to delete: "+thresholdIds);
-        }
-        //Here we are going to delete the actions linked with the triggers effectively DELETED
-        List<String> actionIdsToDelete = getActions(triggerIdDeleted);
-        List<String> actionIdDeleted = zabbixApiManager.deleteActions(actionIdsToDelete);
-        if(!actionIdsToDelete.containsAll(actionIdDeleted)){
-            log.warn("Actions deleted: "+actionIdDeleted+" are less than the actions to delete: "+actionIdsToDelete);
-        }
+        List<String> triggerIdDeleted=null;
+        try {
+            triggerIdDeleted = zabbixApiManager.deleteTriggers(thresholdIds);
+            if (!triggerIdDeleted.containsAll(thresholdIds)) {
+                log.warn("Triggers deleted: " + triggerIdDeleted + " are less than the triggers to delete: " + thresholdIds);
+            }
+            //Here we are going to delete the actions linked with the triggers effectively DELETED
+            List<String> actionIdsToDelete = getActions(triggerIdDeleted);
+            List<String> actionIdDeleted = zabbixApiManager.deleteActions(actionIdsToDelete);
+            if (!actionIdsToDelete.containsAll(actionIdDeleted)) {
+                log.warn("Actions deleted: " + actionIdDeleted + " are less than the actions to delete: " + actionIdsToDelete);
+            }
 
-        //Update the local state
-        for(String triggerId : triggerIdDeleted){
-            thresholds.remove(triggerId);
-            String actionId=triggerIdActionIdMap.get(triggerId);
-            if(!actionIdDeleted.contains(actionId))
-                log.warn("The action with id:" + actionId + " referred to the trigger id: " + triggerId + " needs to be removed manually on zabbix");
-            triggerIdActionIdMap.remove(triggerId);
+            //Update the local state
+            for (String triggerId : triggerIdDeleted) {
+                thresholds.remove(triggerId);
+                String actionId = triggerIdActionIdMap.get(triggerId);
+                if (!actionIdDeleted.contains(actionId))
+                    log.warn("The action with id:" + actionId + " referred to the trigger id: " + triggerId + " needs to be removed manually on zabbix");
+                triggerIdActionIdMap.remove(triggerId);
+            }
+        }catch (Exception e){
+            throw new MonitoringException("The threshold cannot be deleted: "+e.getMessage(),e);
         }
-
         return triggerIdDeleted;
     }
 

@@ -12,12 +12,12 @@ import java.util.List;
  */
 public class Threshold {
     private String thresholdId;
-    private List<ObjectSelection> objectSelectors;
+    private ObjectSelection objectSelectors;
     private String performanceMetric;
     private ThresholdType thresholdType;
     private ThresholdDetails thresholdDetails;
 
-    public Threshold(List<ObjectSelection> objectSelectors, String performanceMetric, ThresholdType thresholdType, ThresholdDetails thresholdDetails) {
+    public Threshold(ObjectSelection objectSelectors, String performanceMetric, ThresholdType thresholdType, ThresholdDetails thresholdDetails) {
         this.objectSelectors = objectSelectors;
         this.performanceMetric = performanceMetric;
         this.thresholdType = thresholdType;
@@ -32,11 +32,11 @@ public class Threshold {
         this.thresholdId = thresholdId;
     }
 
-    public List<ObjectSelection> getObjectSelectors() {
+    public ObjectSelection getObjectSelectors() {
         return objectSelectors;
     }
 
-    public void setObjectSelectors(List<ObjectSelection> objectSelectors) {
+    public void setObjectSelectors(ObjectSelection objectSelectors) {
         this.objectSelectors = objectSelectors;
     }
 
