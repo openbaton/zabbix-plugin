@@ -50,6 +50,8 @@ The prerequisites are:
 
 - Zabbix server installed and running  
 - RabbitMQ server installed and running  
+- Git installed
+- Gradle installed
 - Create a configuration file called zabbix-plugin.conf in the path /etc/openbaton/plugins/ and fill it with the
 configuration parameter explained in the following section.
 
@@ -95,6 +97,7 @@ Once the prerequisites are met, you can clone the following project from git, co
 
 git clone link_of_zabbix-plugin
 cd zabbix-plugin
+git checkout develop
 ./gradlew build -x test
 java -jar build/lib/zabbix-agent-<version>.jar
 

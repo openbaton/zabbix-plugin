@@ -44,12 +44,11 @@ public class VirtualizedResourcePerformanceManagementTest {
 
     @Test
     public void createAndDeleteThresholdTest() throws MonitoringException {
-        List<ObjectSelection> objectSelectors= new ArrayList<>();
-        objectSelectors.add(getObjectSelector());
+        ObjectSelection objectSelector= getObjectSelector();
         ThresholdDetails thresholdDetails= new ThresholdDetails("last(0)","0","=");
         thresholdDetails.setPerceivedSeverity(PerceivedSeverity.CRITICAL);
 
-        String thresholdId = zabbixMonitoringAgent.createThreshold(objectSelectors,"net.tcp.listen[5001]",null,thresholdDetails);
+        String thresholdId = zabbixMonitoringAgent.createThreshold(objectSelector,"net.tcp.listen[5001]",null,thresholdDetails);
 
         List<String> thresholdIdsToDelete=new ArrayList<>();
         thresholdIdsToDelete.add(thresholdId);
