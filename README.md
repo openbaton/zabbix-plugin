@@ -14,7 +14,7 @@ The zabbix-plugin is an implementation of two interfaces of the VIM, in order to
 ![Zabbix plugin architecture][zabbix-plugin-architecture]
 
 With the zabbix plugin you can create/delete items, trigger and action on-demand. But this is what Zabbix server already provide...
-So the utlity of the plugin is to perform these actions using standard ETSI interfaces.
+So *the utlity of the plugin is to perform these actions using standard ETSI interfaces*.
 
 VirtualisedResourcePerformanceManagement interface  
 
@@ -41,7 +41,7 @@ VirtualisedResourceFaultManagement interface
 
 1) Make the consumers (NFVO, VNFM) indipendent to the monitoring system.  
 2) The communication between the consumers and zabbix-plugin is JSON based, so the customers can be written in any languages.  
-3) The values of the items are chached and updated periodically in order to avoid the zabbix server latency.  
+3) The values of the items are cached and updated periodically in order to avoid the zabbix server latency.
 4) If your consumer is written in java, we provide a simple class MonitoringPluginCaller which handle the communication via RabbitMQ.
 
 ## Prerequisites
