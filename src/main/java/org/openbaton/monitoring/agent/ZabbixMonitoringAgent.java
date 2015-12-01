@@ -561,7 +561,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             for (String hostname : hostnames) {
                 String singleHostExpression = "";
                 if (!hostname.equals(firstHostname))
-                    singleHostExpression += "&";
+                    singleHostExpression += "|";
                 singleHostExpression += "{" + hostname + ":" + performanceMetric;
                 if (thresholdDetails.getFunction() != null && !thresholdDetails.getFunction().isEmpty())
                     singleHostExpression += "." + thresholdDetails.getFunction();
