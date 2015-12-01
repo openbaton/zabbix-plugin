@@ -12,6 +12,7 @@ import org.springframework.util.Assert;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -29,9 +30,9 @@ public class VirtualizedResourcePerformanceManagementTest {
 
     @Test
     public void creteAndDeletePMJobTest() throws MonitoringException {
-        ObjectSelection objectSelection = getObjectSelector();
-        List<String> performanceMetrics=getPerformanceMetrics();
-        String pmJobId = zabbixMonitoringAgent.createPMJob(objectSelection, performanceMetrics, null, 5, 0);
+        ObjectSelection objectSelection = getObjectSelector("host-1","host-2");
+        List<String> performanceMetrics=getPerformanceMetrics("net.tcp.listen[8080]","agent.ping");
+        String pmJobId = zabbixMonitoringAgent.createPMJob(objectSelection, performanceMetrics, new ArrayList<String>(),60, 0);
         Assert.notNull(pmJobId);
         Assert.isTrue(!pmJobId.isEmpty());
 
@@ -57,16 +58,17 @@ public class VirtualizedResourcePerformanceManagementTest {
         Assert.isTrue(thresholdId.equals(thresholdIdsDeleted.get(0)));
     }
 
-    private ObjectSelection getObjectSelector(){
+    private ObjectSelection getObjectSelector(String ... args){
         ObjectSelection objectSelection =new ObjectSelection();
-        objectSelection.addObjectInstanceId("iperf-client-110");
-        objectSelection.addObjectInstanceId("iperf-server-820");
+        for(String arg : args){
+            objectSelection.addObjectInstanceId(arg);
+        }
         return objectSelection;
     }
 
-    private List<String> getPerformanceMetrics(){
+    private List<String> getPerformanceMetrics(String ... args){
         List<String> performanceMetrics= new ArrayList<>();
-        performanceMetrics.add("vfs.file.regmatch[/tmp/app.log,error]");
+        Collections.addAll(performanceMetrics, args);
         return performanceMetrics;
     }
 
