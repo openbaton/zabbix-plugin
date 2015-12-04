@@ -268,7 +268,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
 
         //Check if the trigger is crossed for the first time
-        if(isNewNotification(zabbixNotification)) {
+        boolean isNewNotification = isNewNotification(zabbixNotification);
+        if(isNewNotification && zabbixNotification.getTriggerStatus().ordinal()==TriggerStatus.PROBLEM.ordinal()) {
             //TODO create Threshold crossed notification
             log.debug("Yes is new");
             //if the severity of the notification is more than Not classified or Information,
@@ -286,7 +287,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             triggerIdHostnames.put(zabbixNotification.getTriggerId(),hostnames);
             log.debug("triggerIdHostnames: "+triggerIdHostnames);
         }
-        else {
+        else if (!isNewNotification){
             //TODO create Threshold crossed notification
             if (!(zabbixNotification.getTriggerSeverity().equals("Not classified") || zabbixNotification.getTriggerSeverity().equals("Information"))) {
 

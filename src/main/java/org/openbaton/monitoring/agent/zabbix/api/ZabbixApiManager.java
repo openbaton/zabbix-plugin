@@ -93,19 +93,26 @@ public class ZabbixApiManager {
         operation.setOperationtype(0);
         operation.setOpmessage(opmessage);
 
+        List<Condition> conditions = new ArrayList<>();
+
         Condition condition1= new Condition();
         condition1.setConditiontype(2);
         condition1.setOperator(0);
         //triggerId
         condition1.setValue(triggerId);
+        conditions.add(condition1);
 
+        //If commented we get notification also if the trigger switch from PROBLEM to OK
+        /*
         Condition condition2= new Condition();
         condition2.setConditiontype(5);
         condition2.setOperator(0);
         condition2.setValue("1");
+        conditions.add(condition2);
+        */
 
         zabbixAction.setName(actionName);
-        List<Condition> conditions = new ArrayList<>(); conditions.add(condition1);conditions.add(condition2);
+
         zabbixAction.setConditions(conditions);
 
         String defLongData="{" +
