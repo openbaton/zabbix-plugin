@@ -486,7 +486,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 if (performanceMetrics.isEmpty())
                     throw new MonitoringException("PerformanceMetrics is null");
                 pmJob = new PmJob(objectSelection, collectionPeriod);
-
                 for (String hostname : objectSelection.getObjectInstanceIds()) {
                     String hostId = zabbixApiManager.getHostId(hostname);
                     String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
@@ -497,6 +496,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 }
             }
         }catch (Exception e){
+            log.error(e.getMessage(),e);
             throw new MonitoringException("The Pm job cannot be created: "+e.getMessage(),e);
         }
         pmJobs.put(pmJob.getPmjobId(),pmJob);
@@ -555,14 +555,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         //TODO Investigate which are the cases where we need more than one objectSelector
         //Now we use only one objectSelector
         List<String> hostnames= objectSelector.getObjectInstanceIds();
-        Threshold threshold=null;
+        Threshold threshold;
         try {
             String firstHostname = hostnames.get(0);
             String thresholdExpression = "";
             for (String hostname : hostnames) {
                 String singleHostExpression = "";
-                if (!hostname.equals(firstHostname))
-                    singleHostExpression += "|";
+                if (!hostname.equals(firstHostname)){
+                    if(thresholdDetails.getHostOperator()!=null)
+                        singleHostExpression += thresholdDetails.getHostOperator();
+                }
                 singleHostExpression += "{" + hostname + ":" + performanceMetric;
                 if (thresholdDetails.getFunction() != null && !thresholdDetails.getFunction().isEmpty())
                     singleHostExpression += "." + thresholdDetails.getFunction();
