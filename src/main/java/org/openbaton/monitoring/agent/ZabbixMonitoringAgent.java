@@ -238,6 +238,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
      * terminate the scheduler safely
      */
     public void terminate() {
+        log.info("Shuting down...");
         shutdownAndAwaitTermination(scheduler);
         server.stop(10);
     }
