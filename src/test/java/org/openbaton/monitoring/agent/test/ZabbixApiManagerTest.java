@@ -16,6 +16,7 @@
 package org.openbaton.monitoring.agent.test;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixSender;
@@ -53,6 +54,7 @@ public class ZabbixApiManagerTest {
     }
 
     @Test
+    @Ignore
     public void createAndDeleteActionAndTriggerTest() throws MonitoringException {
 
         String triggerId = zabbixApiManager.createTrigger("Test trigger","{iperf-server-536:system.cpu.load[percpu,avg1].last(0)}>0.45",3/*average*/);

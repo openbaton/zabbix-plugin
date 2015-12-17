@@ -17,6 +17,7 @@ package org.openbaton.monitoring.agent.test;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
 import org.openbaton.catalogue.mano.common.monitoring.PerceivedSeverity;
@@ -44,6 +45,7 @@ public class VirtualizedResourcePerformanceManagementTest {
     }
 
     @Test
+    @Ignore
     public void creteAndDeletePMJobTest() throws MonitoringException {
         ObjectSelection objectSelection = getObjectSelector("host-1","host-2");
         List<String> performanceMetrics=getPerformanceMetrics("net.tcp.listen[8080]","agent.ping");
@@ -59,6 +61,7 @@ public class VirtualizedResourcePerformanceManagementTest {
     }
 
     @Test
+    @Ignore
     public void createAndDeleteThresholdTest() throws MonitoringException {
         ObjectSelection objectSelector= getObjectSelector();
         ThresholdDetails thresholdDetails= new ThresholdDetails("last(0)","=",PerceivedSeverity.CRITICAL,"0","|");
