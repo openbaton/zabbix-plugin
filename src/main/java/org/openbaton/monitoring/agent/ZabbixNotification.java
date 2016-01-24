@@ -29,7 +29,7 @@ public class ZabbixNotification {
     private String itemName;
     private String hostName;
     private String itemKey;
-    private float itemValue;
+    private String itemValue;
     private int eventId;
     private String eventDate;
     private String eventTime;
@@ -101,11 +101,11 @@ public class ZabbixNotification {
         this.itemKey = itemKey;
     }
 
-    public float getItemValue() {
+    public String getItemValue() {
         return itemValue;
     }
 
-    public void setItemValue(float itemValue) {
+    public void setItemValue(String itemValue) {
         this.itemValue = itemValue;
     }
 

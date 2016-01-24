@@ -248,6 +248,29 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
+
+        /*// test
+        try {
+            String hostId = zabbixApiManager.getHostId("iperf-server-910");
+            String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+            String ruleId = zabbixApiManager.getRuleId(hostId);
+
+            //zabbixApiManager.createPrototypeItem(10,hostId,interfaceId,"net.if.in[{#IFNAME},bytes]","nome parametro",7,0,ruleId);
+        } catch (MonitoringException e) {
+            e.printStackTrace();
+        }*/
+        /*String actionId="";
+        try {
+            // nome: PrototypeThreshold on demand 57
+            // host id of iperf-server-359 = 10816
+            String ruleId = zabbixApiManager.getRuleId("10816");
+            log.debug("Rule id net: "+ruleId);
+            String prototypeTriggerId = zabbixApiManager.getPrototypeTriggerId(ruleId);
+            actionId = zabbixApiManager.createAction("Action for (PrototypeThreshold on demand 57)", "PrototypeThreshold on demand 57");
+        } catch (MonitoringException e) {
+            log.error("test "+e.getMessage(),e);
+        }
+        log.debug("Success: "+actionId);*/
     }
     /**
      * terminate the scheduler safely
@@ -506,7 +529,21 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     String hostId = zabbixApiManager.getHostId(hostname);
                     String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
                     for (String performanceMetric : performanceMetrics) {
-                        String itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, 0, 3, performanceMetric, interfaceId);
+                        log.debug("The performance metric is: "+performanceMetric);
+                        int type = getType(collectionPeriod);
+                        //Check if is present a LLD
+                        String itemId;
+                        if(performanceMetric.contains("{#FSNAME}") |
+                                performanceMetric.contains("{#FSTYPE}")|
+                                performanceMetric.contains("{#IFNAME}")|
+                                performanceMetric.contains("{#SNMPINDEX}")|
+                                performanceMetric.contains("{#SNMPVALUE}")){
+                            String ruleId = zabbixApiManager.getRuleId(hostId);
+                            itemId = zabbixApiManager.createPrototypeItem(collectionPeriod,hostId,interfaceId,performanceMetric,"ZabbixPrototypeItem on demand: "+ performanceMetric,type,0,ruleId);
+                            pmJob.addPerformanceMetric(itemId, performanceMetric);
+                        }
+                        else
+                            itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, type, 0, performanceMetric, interfaceId);
                         pmJob.addPerformanceMetric(itemId, performanceMetric);
                     }
                 }
@@ -517,6 +554,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
         pmJobs.put(pmJob.getPmjobId(),pmJob);
         return pmJob.getPmjobId();
+    }
+    // The type of the item can be Zabbix agent or Zabbix agent (active)
+    // Zabbix agent = 0
+    // Zabbix agent (active) = 7
+    // If the update interval of the item (collection period) is less or equals to 10 seconds than we create a
+    // Zabbix agent (active) item which is typically faster
+    private int getType(Integer collectionPeriod) {
+        if(collectionPeriod<=10)
+            return 7;
+        return 0;
     }
 
     @Override
@@ -588,16 +635,26 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 thresholdExpression += singleHostExpression;
             }
             log.debug("Threshold expression: " + thresholdExpression);
-            String thresholdName = "Threshold on demand " + random.nextInt(100);
-            String triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
-
+            String triggerId,thresholdName;
+            if(thresholdExpression.contains("{#FSNAME}") |
+                    thresholdExpression.contains("{#FSTYPE}")|
+                    thresholdExpression.contains("{#IFNAME}")|
+                    thresholdExpression.contains("{#SNMPINDEX}")|
+                    thresholdExpression.contains("{#SNMPVALUE}")){
+                thresholdName = "PrototypeThreshold on demand " + random.nextInt(100);
+                triggerId = zabbixApiManager.createPrototypeTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
+            }
+            else {
+                thresholdName = "Threshold on demand " + random.nextInt(100);
+                triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
+            }
             threshold = new Threshold(objectSelector, performanceMetric, thresholdType, thresholdDetails);
             threshold.setThresholdId(triggerId);
 
             thresholds.put(threshold.getThresholdId(), threshold);
 
             //create an action to be notified when this threshold is crossed
-            String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", triggerId);
+            String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", thresholdName);
             triggerIdActionIdMap.put(triggerId, actionId);
         }catch (Exception e){
             throw new MonitoringException("The threshold cannot be created: "+e.getMessage(),e);
