@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Created by mob on 18.11.15.
  */
-public class ZabbixSender {
+public class ZabbixSender implements RestSender{
 
     private Logger log = LoggerFactory.getLogger(this.getClass());
     private Gson mapper=new GsonBuilder().setPrettyPrinting().create();
@@ -53,12 +53,15 @@ public class ZabbixSender {
             this.zabbixPort=zabbixPort;
         }
     }
+    @Override
     public synchronized HttpResponse<String> doRestCallWithJson(String url,String json,HttpMethod method,String contentType) throws UnirestException {
         HttpResponse<String> response=null;
         switch (method){
             case PUT : response=Unirest.put(url).header("Content-type",contentType).header("KeepAliveTimeout","5000").body(json).asString();
                 break;
             case POST: response=Unirest.post(url).header("Content-type",contentType).header("KeepAliveTimeout","5000").body(json).asString();
+                break;
+            case GET:  response=Unirest.get(url).asString();
                 break;
         }
         return response;

@@ -281,7 +281,7 @@ public class ZabbixApiManager {
         if(resultEl!=null && resultEl.isJsonArray()){
             JsonArray resultAr= resultEl.getAsJsonArray();
 
-            JsonObject ruleObj= resultAr.get(0).getAsJsonObject();
+            JsonObject ruleObj = resultAr.get(0).getAsJsonObject();
             ruleId = ruleObj.get("itemid").getAsString();
         }
         return ruleId;

@@ -28,8 +28,14 @@ import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.catalogue.util.IdGenerator;
 import org.openbaton.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.alarm.catalogue.*;
-import org.openbaton.monitoring.agent.performance.management.catalogue.*;
+import org.openbaton.monitoring.agent.alarm.catalogue.DatacenterAlarm;
+import org.openbaton.monitoring.agent.alarm.catalogue.Metric;
+import org.openbaton.monitoring.agent.alarm.catalogue.VirtualizedResourceAlarmNotification;
+import org.openbaton.monitoring.agent.alarm.catalogue.VirtualizedResourceAlarmStateChangedNotification;
+import org.openbaton.monitoring.agent.connectivitymanager.ConnectivityManagerClient;
+import org.openbaton.monitoring.agent.connectivitymanager.Host;
+import org.openbaton.monitoring.agent.performance.management.catalogue.PmJob;
+import org.openbaton.monitoring.agent.performance.management.catalogue.Threshold;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
 import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
@@ -41,7 +47,10 @@ import java.rmi.RemoteException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.primitives.Doubles.tryParse;
 
@@ -62,11 +71,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private List<AlarmEndpoint> subscriptions;
     private Map<String,PmJob> pmJobs;
     private Map<String,Threshold> thresholds;
+    private Map<String,List<Alarm>> datacenterAlarms;
     private String type;
     private Map<String, List<String>> triggerIdHostnames;
     private Map<String, String> triggerIdActionIdMap;
     private LimitedQueue<State> history;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private ConnectivityManagerClient connectivityManagerClient;
 
     //Server properties
     private HttpServer server;
@@ -234,7 +245,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         history = new LimitedQueue<>(historyLength);
         mapper = new GsonBuilder().setPrettyPrinting().create();
         subscriptions=new ArrayList<>();
-        subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"http://localhost:9000/alarm/vr",PerceivedSeverity.MAJOR));
+        subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"http://localhost:9000/alarm/vr",PerceivedSeverity.MINOR));
         triggerIdHostnames=new HashMap<>();
         pmJobs=new HashMap<>();
         thresholds=new HashMap<>();
@@ -245,12 +256,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             log.error("Authentication failed: " + e.getMessage());
             throw new RemoteException("Authentication to Zabbix server failed.");
         }
-
+        connectivityManagerClient= new ConnectivityManagerClient(properties.getProperty("connectivity-manager-ip"),properties.getProperty("connectivity-manager-port"),zabbixSender);
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
+        datacenterAlarms=new HashMap<>();
 
-        /*// test
-        try {
+        // test
+        /*try {
             String hostId = zabbixApiManager.getHostId("iperf-server-910");
             String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
             String ruleId = zabbixApiManager.getRuleId(hostId);
@@ -298,14 +310,21 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
     }
 
-    private void handleNotification(ZabbixNotification zabbixNotification) {
+    private void handleNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+
+        if(isDatacenterNotification(zabbixNotification)){
+            log.debug("Received a datacenter alarm from: "+zabbixNotification.getHostName());
+            handleDatacenterNotification(zabbixNotification);
+            return;
+        }
+
         List<AlarmEndpoint> subscribers = getSubscribers(zabbixNotification);
 
         if(subscribers.isEmpty()){
             log.debug("No subscribers for this notification");
             return;
         }
-
+        log.debug("subscribers: "+subscribers);
         //Check if the trigger is crossed for the first time
         boolean isNewNotification = isNewNotification(zabbixNotification);
         if(isNewNotification && zabbixNotification.getTriggerStatus().ordinal()==TriggerStatus.PROBLEM.ordinal()) {
@@ -315,10 +334,9 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             // create an alarm or change the state of an existing alarm
             if (!(zabbixNotification.getTriggerSeverity().equals("Not classified") || zabbixNotification.getTriggerSeverity().equals("Information"))) {
                 log.debug("creating alarm");
-                Alarm alarm = createAlarm(zabbixNotification);
-                AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmNotification(alarm.getTriggerId(), alarm);
-                log.debug("Sending alarm:" + alarm);
-
+                VRAlarm vrAlarm = createAlarm(zabbixNotification);
+                AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmNotification(vrAlarm.getThresholdId(),vrAlarm);
+                log.debug("Sending alarm:" + vrAlarm);
                 sendFaultNotification(notification,subscribers);
             }
             List<String> hostnames= new ArrayList<>();
@@ -330,12 +348,75 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             //TODO create Threshold crossed notification
             if (!(zabbixNotification.getTriggerSeverity().equals("Not classified") || zabbixNotification.getTriggerSeverity().equals("Information"))) {
 
-                AlarmState alarmState= zabbixNotification.getTriggerStatus() == TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED;
+                AlarmState alarmState = zabbixNotification.getTriggerStatus() == TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED;
                 AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmStateChangedNotification(zabbixNotification.getTriggerId(),alarmState);
 
                 sendFaultNotification(notification,subscribers);
             }
         }
+    }
+
+    private void handleDatacenterNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+        String datacenterName = zabbixNotification.getHostName();
+        Alarm alarm = createDatacenterAlarm(zabbixNotification);
+        if(  datacenterAlarms.get(datacenterName)  == null)
+        {
+            List<Alarm> alarms= new ArrayList<>();
+            alarms.add(alarm);
+            datacenterAlarms.put(datacenterName,alarms);
+        }
+        else {
+            List<Alarm> alarms = datacenterAlarms.get(datacenterName);
+            boolean found = false;
+            for(Alarm currentAlarm : alarms){
+                //Check if the alarm is present update it
+                if(currentAlarm.getThresholdId().equals(zabbixNotification.getTriggerId())){
+                    currentAlarm.setAlarmState(zabbixNotification.getTriggerStatus()==TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED);
+                    found=true; break;
+                }
+            }
+            if(!found){
+                alarms.add(alarm);
+                datacenterAlarms.put(datacenterName, alarms);
+            }
+        }
+    }
+
+    private Alarm createDatacenterAlarm(ZabbixNotification zabbixNotification) {
+        DatacenterAlarm datacenterAlarm = new DatacenterAlarm();
+        datacenterAlarm.setThresholdId(zabbixNotification.getTriggerId());
+
+        //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object.
+        datacenterAlarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
+        //EventTime: Time when the fault was observed.
+        DateFormat dateFormat= new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+        Date date = new Date();
+        datacenterAlarm.setEventTime(dateFormat.format(date));
+
+        //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”.
+        datacenterAlarm.setAlarmState(AlarmState.FIRED);
+        /*
+        Type of the fault.The allowed values for the faultyType attribute depend
+        on the type of the related managed object. For example, a resource of type “compute”
+        may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc.
+        */
+        datacenterAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
+        /*
+        Identifier of the affected managed Object. The Managed Objects for this information element
+        will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface.
+        */
+        //TODO handle a notification fired by a threshold on more than one hostname
+        datacenterAlarm.setDatacenterName(zabbixNotification.getHostName());
+
+        //Perceived severity of the managed object failure
+        datacenterAlarm.setPerceivedSeverity(getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
+
+        return datacenterAlarm;
+    }
+
+    private boolean isDatacenterNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+        Host host = connectivityManagerClient.getHost();
+        return host.isDatacenter(zabbixNotification.getHostName());
     }
 
     private boolean isNewNotification(ZabbixNotification zabbixNotification){
@@ -372,36 +453,36 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         return subscribersForNotification;
     }
 
-    private Alarm createAlarm(ZabbixNotification zabbixNotification) {
-        Alarm alarm= new Alarm();
-        alarm.setTriggerId(zabbixNotification.getTriggerId());
+    private VRAlarm createAlarm(ZabbixNotification zabbixNotification) {
+        VRAlarm vrAlarm = new VRAlarm();
+        vrAlarm.setThresholdId(zabbixNotification.getTriggerId());
 
         //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object. 
-        alarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
+        vrAlarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
         //EventTime: Time when the fault was observed. 
         DateFormat dateFormat= new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         Date date = new Date();
-        alarm.setEventTime(dateFormat.format(date));
+        vrAlarm.setEventTime(dateFormat.format(date));
 
         //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”. 
-        alarm.setAlarmState(AlarmState.FIRED);
+        vrAlarm.setAlarmState(AlarmState.FIRED);
         /*
         Type of the fault.The allowed values for the faultyType attribute depend
         on the type of the related managed object. For example, a resource of type “compute”
         may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc. 
         */
-        alarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
+        vrAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
         /*
         Identifier of the affected managed Object. The Managed Objects for this information element
         will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface. 
         */
         //TODO handle a notification fired by a threshold on more than one hostname
-        alarm.setResourceId(zabbixNotification.getHostName());
+        vrAlarm.setManagedObject(zabbixNotification.getHostName());
 
         //Perceived severity of the managed object failure
-        alarm.setPerceivedSeverity(getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
+        vrAlarm.setPerceivedSeverity(getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
 
-        return alarm;
+        return vrAlarm;
     }
 
     private PerceivedSeverity getPerceivedSeverity(String triggerSeverity) {
@@ -428,15 +509,15 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private FaultType getFaultType(String itemKey) {
         Metric metric;
-        int index= itemKey.indexOf('[');
+        int index = itemKey.indexOf('[');
         if(index!=-1)
             metric=getMetric(itemKey.substring(0, index));
         else metric=getMetric(itemKey);
 
-
         switch (metric){
             case SYSTEM_CPU_LOAD: return FaultType.COMPUTE_HOGS_CPU;
             case NET_TCP_LISTEN: return FaultType.IO_NETWORK_FRAME_TRANSMIT;
+
         }
         return null;
     }
@@ -487,9 +568,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             VirtualizedResourceAlarmNotification vran = (VirtualizedResourceAlarmNotification) event;
             String jsonAlarm = mapper.toJson(vran,VirtualizedResourceAlarmNotification.class);
             log.debug("Sending VirtualizedResourceAlarmNotification: "+jsonAlarm +" to: "+endpoint.getEndpoint());
-
-                response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
-
+            response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
         }
         else if (event instanceof VirtualizedResourceAlarmStateChangedNotification){
             VirtualizedResourceAlarmStateChangedNotification vrascn= (VirtualizedResourceAlarmStateChangedNotification) event;
@@ -713,7 +792,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             InputStream is = t.getRequestBody();
 
             String message = read(is);
-            checkRequest(message);
+            try {
+                checkRequest(message);
+            } catch (UnirestException e) {
+                e.printStackTrace();
+            }
             String response = "";
             try {
                 t.sendResponseHeaders(200, response.length());
@@ -725,7 +808,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             }
         }
 
-        private void checkRequest(String message) {
+        private void checkRequest(String message) throws UnirestException {
             log.debug("\n\n");
             log.debug("Received: "+message);
             ZabbixNotification zabbixNotification;
