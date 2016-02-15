@@ -741,11 +741,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     thresholdExpression.contains("{#IFNAME}")|
                     thresholdExpression.contains("{#SNMPINDEX}")|
                     thresholdExpression.contains("{#SNMPVALUE}")){
-                thresholdName = "PrototypeThreshold on demand " + random.nextInt(1000);
+                thresholdName = "PrototypeThreshold on demand " + random.nextInt(100000);
                 triggerId = zabbixApiManager.createPrototypeTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
             }
             else {
-                thresholdName = "Threshold on demand " + random.nextInt(1000);
+                thresholdName = "Threshold on demand " + random.nextInt(100000);
                 triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
             }
             threshold = new Threshold(objectSelector, performanceMetric, thresholdType, thresholdDetails);
