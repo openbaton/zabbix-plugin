@@ -6,7 +6,6 @@ import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import org.openbaton.monitoring.agent.RestSender;
-import org.openbaton.monitoring.agent.ZabbixSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

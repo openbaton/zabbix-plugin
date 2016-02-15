@@ -256,7 +256,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             log.error("Authentication failed: " + e.getMessage());
             throw new RemoteException("Authentication to Zabbix server failed.");
         }
-        connectivityManagerClient= new ConnectivityManagerClient(properties.getProperty("connectivity-manager-ip"),properties.getProperty("connectivity-manager-port"),zabbixSender);
+        try {
+            connectivityManagerClient = new ConnectivityManagerClient(properties.getProperty("connectivity-manager-ip"), properties.getProperty("connectivity-manager-port"), zabbixSender);
+        }catch(Exception e){
+            log.warn(e.getMessage());
+            connectivityManagerClient=null;
+        }
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
         datacenterAlarms=new HashMap<>();
@@ -417,6 +422,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
 
     private boolean isDatacenterNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+        if(connectivityManagerClient==null)
+            return false;
         Host host = connectivityManagerClient.getHost();
         return host.isDatacenter(zabbixNotification.getHostName());
     }
