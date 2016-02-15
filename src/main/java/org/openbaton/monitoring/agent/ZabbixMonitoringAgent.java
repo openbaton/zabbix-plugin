@@ -275,10 +275,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         try {
             // nome: PrototypeThreshold on demand 57
             // host id of iperf-server-359 = 10816
+            String hostId = zabbixApiManager.getHostId("iperf-server-519");
             String ruleId = zabbixApiManager.getRuleId("10816");
             log.debug("Rule id net: "+ruleId);
             String prototypeTriggerId = zabbixApiManager.getPrototypeTriggerId(ruleId);
-            actionId = zabbixApiManager.createAction("Action for (PrototypeThreshold on demand 57)", "PrototypeThreshold on demand 57");
+            log.debug("The prototype trigger id are: "+prototypeTriggerId);
+            //actionId = zabbixApiManager.createAction("Action for (PrototypeThreshold on demand 57)", "PrototypeThreshold on demand 57");
         } catch (MonitoringException e) {
             log.error("test "+e.getMessage(),e);
         }
@@ -658,8 +660,20 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 PmJob pmJob = pmJobs.get(pmJobId);
                 if (pmJob != null) {
                     List<String> itemIds = new ArrayList<>();
-                    itemIds.addAll(pmJob.getPerformanceMentricIds());
+                    List<String> prototypeItemIds = new ArrayList<>();
+                    //Map<String,String> performanceMetrics = pmJob.getPerformanceMetrics();
+                    for(Map.Entry<String,String> entry: pmJob.getPerformanceMetrics().entrySet()){
+                        if(entry.getValue().contains("{#FSNAME}") |
+                                entry.getValue().contains("{#FSTYPE}")|
+                                entry.getValue().contains("{#IFNAME}")|
+                                entry.getValue().contains("{#SNMPINDEX}")|
+                                entry.getValue().contains("{#SNMPVALUE}"))
+                            prototypeItemIds.add(entry.getKey());
+                        else
+                            itemIds.add(entry.getKey());
+                    }
                     zabbixApiManager.deleteItems(itemIds);
+                    zabbixApiManager.deletePrototypeItems(pmJobIdsToDelete);
                     deletedPmJobId.add(pmJobId);
                 }
 
@@ -720,11 +734,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     thresholdExpression.contains("{#IFNAME}")|
                     thresholdExpression.contains("{#SNMPINDEX}")|
                     thresholdExpression.contains("{#SNMPVALUE}")){
-                thresholdName = "PrototypeThreshold on demand " + random.nextInt(100);
+                thresholdName = "PrototypeThreshold on demand " + random.nextInt(1000);
                 triggerId = zabbixApiManager.createPrototypeTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
             }
             else {
-                thresholdName = "Threshold on demand " + random.nextInt(100);
+                thresholdName = "Threshold on demand " + random.nextInt(1000);
                 triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
             }
             threshold = new Threshold(objectSelector, performanceMetric, thresholdType, thresholdDetails);

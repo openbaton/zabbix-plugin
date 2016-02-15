@@ -83,6 +83,9 @@ public class ZabbixApiManager {
     public List<String> deleteItems(List<String> itemIdsToDelete) throws MonitoringException {
         return delete("item",itemIdsToDelete);
     }
+    public List<String> deletePrototypeItems(List<String> itemIdsToDelete) throws MonitoringException {
+        return delete("itemprototype",itemIdsToDelete);
+    }
     public List<String> deleteActions(List<String> actionIdsToDelete) throws MonitoringException {
         return delete("action",actionIdsToDelete);
     }
@@ -275,9 +278,11 @@ public class ZabbixApiManager {
 
     public String getRuleId(String hostId) throws MonitoringException {
         String ruleId="";
-        String params="{'output':'extend','hostids':'"+hostId+"','search':{'key_':'net.if.discovery'}}";
+        String params="{'output':'extend','hostids':'"+hostId+"'}";
+        log.debug("Sending param: "+params);
         JsonObject responseObj = zabbixSender.callPost(params, "discoveryrule.get");
         JsonElement resultEl= responseObj.get("result");
+        log.debug("Received result: "+resultEl.toString());
         if(resultEl!=null && resultEl.isJsonArray()){
             JsonArray resultAr= resultEl.getAsJsonArray();
 

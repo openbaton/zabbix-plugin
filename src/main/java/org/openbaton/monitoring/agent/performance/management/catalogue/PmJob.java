@@ -62,6 +62,10 @@ public class PmJob {
         return this.performanceMetrics.get(performanceMetricId);
     }
 
+    public Map<String, String> getPerformanceMetrics() {
+        return performanceMetrics;
+    }
+
     public Set<String> getPerformanceMentricIds(){
         return performanceMetrics.keySet();
     }
