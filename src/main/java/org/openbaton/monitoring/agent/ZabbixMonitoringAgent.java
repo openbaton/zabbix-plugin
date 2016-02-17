@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2015 Fraunhofer FOKUS
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.openbaton.monitoring.agent;
 
 
@@ -13,8 +28,14 @@ import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.catalogue.util.IdGenerator;
 import org.openbaton.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.alarm.catalogue.*;
-import org.openbaton.monitoring.agent.performance.management.catalogue.*;
+import org.openbaton.monitoring.agent.alarm.catalogue.DatacenterAlarm;
+import org.openbaton.monitoring.agent.alarm.catalogue.Metric;
+import org.openbaton.monitoring.agent.alarm.catalogue.VirtualizedResourceAlarmNotification;
+import org.openbaton.monitoring.agent.alarm.catalogue.VirtualizedResourceAlarmStateChangedNotification;
+import org.openbaton.monitoring.agent.connectivitymanager.ConnectivityManagerClient;
+import org.openbaton.monitoring.agent.connectivitymanager.Host;
+import org.openbaton.monitoring.agent.performance.management.catalogue.PmJob;
+import org.openbaton.monitoring.agent.performance.management.catalogue.Threshold;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
 import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
@@ -26,7 +47,10 @@ import java.rmi.RemoteException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.primitives.Doubles.tryParse;
 
@@ -47,11 +71,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     private List<AlarmEndpoint> subscriptions;
     private Map<String,PmJob> pmJobs;
     private Map<String,Threshold> thresholds;
+    private Map<String,List<Alarm>> datacenterAlarms;
     private String type;
     private Map<String, List<String>> triggerIdHostnames;
     private Map<String, String> triggerIdActionIdMap;
     private LimitedQueue<State> history;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private ConnectivityManagerClient connectivityManagerClient;
 
     //Server properties
     private HttpServer server;
@@ -219,7 +245,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         history = new LimitedQueue<>(historyLength);
         mapper = new GsonBuilder().setPrettyPrinting().create();
         subscriptions=new ArrayList<>();
-        subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"http://localhost:9000/alarm/vr",PerceivedSeverity.MAJOR));
+        subscriptions.add(new AlarmEndpoint("fmsystem",null, EndpointType.REST,"http://localhost:9000/alarm/vr",PerceivedSeverity.MINOR));
         triggerIdHostnames=new HashMap<>();
         pmJobs=new HashMap<>();
         thresholds=new HashMap<>();
@@ -230,14 +256,46 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             log.error("Authentication failed: " + e.getMessage());
             throw new RemoteException("Authentication to Zabbix server failed.");
         }
-
+        try {
+            connectivityManagerClient = new ConnectivityManagerClient(properties.getProperty("connectivity-manager-ip"), properties.getProperty("connectivity-manager-port"), zabbixSender);
+        }catch(Exception e){
+            log.warn(e.getMessage());
+            connectivityManagerClient=null;
+        }
         updateHistory.run();
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
+        datacenterAlarms=new HashMap<>();
+
+        // test
+        /*try {
+            String hostId = zabbixApiManager.getHostId("iperf-server-910");
+            String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+            String ruleId = zabbixApiManager.getRuleId(hostId);
+
+            //zabbixApiManager.createPrototypeItem(10,hostId,interfaceId,"net.if.in[{#IFNAME},bytes]","nome parametro",7,0,ruleId);
+        } catch (MonitoringException e) {
+            e.printStackTrace();
+        }*/
+        /*String actionId="";
+        try {
+            // nome: PrototypeThreshold on demand 57
+            // host id of iperf-server-359 = 10816
+            String hostId = zabbixApiManager.getHostId("iperf-server-519");
+            String ruleId = zabbixApiManager.getRuleId("10816");
+            log.debug("Rule id net: "+ruleId);
+            String prototypeTriggerId = zabbixApiManager.getPrototypeTriggerId(ruleId);
+            log.debug("The prototype trigger id are: "+prototypeTriggerId);
+            //actionId = zabbixApiManager.createAction("Action for (PrototypeThreshold on demand 57)", "PrototypeThreshold on demand 57");
+        } catch (MonitoringException e) {
+            log.error("test "+e.getMessage(),e);
+        }
+        log.debug("Success: "+actionId);*/
     }
     /**
      * terminate the scheduler safely
      */
     public void terminate() {
+        log.info("Shuting down...");
         shutdownAndAwaitTermination(scheduler);
         server.stop(10);
     }
@@ -259,14 +317,21 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
     }
 
-    private void handleNotification(ZabbixNotification zabbixNotification) {
+    private void handleNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+
+        if(isDatacenterNotification(zabbixNotification)){
+            log.debug("Received a datacenter alarm from: "+zabbixNotification.getHostName());
+            handleDatacenterNotification(zabbixNotification);
+            return;
+        }
+
         List<AlarmEndpoint> subscribers = getSubscribers(zabbixNotification);
 
         if(subscribers.isEmpty()){
             log.debug("No subscribers for this notification");
             return;
         }
-
+        log.debug("subscribers: "+subscribers);
         //Check if the trigger is crossed for the first time
         boolean isNewNotification = isNewNotification(zabbixNotification);
         if(isNewNotification && zabbixNotification.getTriggerStatus().ordinal()==TriggerStatus.PROBLEM.ordinal()) {
@@ -276,10 +341,9 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             // create an alarm or change the state of an existing alarm
             if (!(zabbixNotification.getTriggerSeverity().equals("Not classified") || zabbixNotification.getTriggerSeverity().equals("Information"))) {
                 log.debug("creating alarm");
-                Alarm alarm = createAlarm(zabbixNotification);
-                AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmNotification(alarm.getTriggerId(), alarm);
-                log.debug("Sending alarm:" + alarm);
-
+                VRAlarm vrAlarm = createAlarm(zabbixNotification);
+                AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmNotification(vrAlarm.getThresholdId(),vrAlarm);
+                log.debug("Sending alarm:" + vrAlarm);
                 sendFaultNotification(notification,subscribers);
             }
             List<String> hostnames= new ArrayList<>();
@@ -291,12 +355,77 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             //TODO create Threshold crossed notification
             if (!(zabbixNotification.getTriggerSeverity().equals("Not classified") || zabbixNotification.getTriggerSeverity().equals("Information"))) {
 
-                AlarmState alarmState= zabbixNotification.getTriggerStatus() == TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED;
+                AlarmState alarmState = zabbixNotification.getTriggerStatus() == TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED;
                 AbstractVirtualizedResourceAlarm notification = new VirtualizedResourceAlarmStateChangedNotification(zabbixNotification.getTriggerId(),alarmState);
 
                 sendFaultNotification(notification,subscribers);
             }
         }
+    }
+
+    private void handleDatacenterNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+        String datacenterName = zabbixNotification.getHostName();
+        Alarm alarm = createDatacenterAlarm(zabbixNotification);
+        if(  datacenterAlarms.get(datacenterName)  == null)
+        {
+            List<Alarm> alarms= new ArrayList<>();
+            alarms.add(alarm);
+            datacenterAlarms.put(datacenterName,alarms);
+        }
+        else {
+            List<Alarm> alarms = datacenterAlarms.get(datacenterName);
+            boolean found = false;
+            for(Alarm currentAlarm : alarms){
+                //Check if the alarm is present update it
+                if(currentAlarm.getThresholdId().equals(zabbixNotification.getTriggerId())){
+                    currentAlarm.setAlarmState(zabbixNotification.getTriggerStatus()==TriggerStatus.OK ? AlarmState.CLEARED : AlarmState.UPDATED);
+                    found=true; break;
+                }
+            }
+            if(!found){
+                alarms.add(alarm);
+                datacenterAlarms.put(datacenterName, alarms);
+            }
+        }
+    }
+
+    private Alarm createDatacenterAlarm(ZabbixNotification zabbixNotification) {
+        DatacenterAlarm datacenterAlarm = new DatacenterAlarm();
+        datacenterAlarm.setThresholdId(zabbixNotification.getTriggerId());
+
+        //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object.
+        datacenterAlarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
+        //EventTime: Time when the fault was observed.
+        DateFormat dateFormat= new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+        Date date = new Date();
+        datacenterAlarm.setEventTime(dateFormat.format(date));
+
+        //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”.
+        datacenterAlarm.setAlarmState(AlarmState.FIRED);
+        /*
+        Type of the fault.The allowed values for the faultyType attribute depend
+        on the type of the related managed object. For example, a resource of type “compute”
+        may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc.
+        */
+        datacenterAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
+        /*
+        Identifier of the affected managed Object. The Managed Objects for this information element
+        will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface.
+        */
+        //TODO handle a notification fired by a threshold on more than one hostname
+        datacenterAlarm.setDatacenterName(zabbixNotification.getHostName());
+
+        //Perceived severity of the managed object failure
+        datacenterAlarm.setPerceivedSeverity(getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
+
+        return datacenterAlarm;
+    }
+
+    private boolean isDatacenterNotification(ZabbixNotification zabbixNotification) throws UnirestException {
+        if(connectivityManagerClient==null)
+            return false;
+        Host host = connectivityManagerClient.getHost();
+        return host.isDatacenter(zabbixNotification.getHostName());
     }
 
     private boolean isNewNotification(ZabbixNotification zabbixNotification){
@@ -333,36 +462,36 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         return subscribersForNotification;
     }
 
-    private Alarm createAlarm(ZabbixNotification zabbixNotification) {
-        Alarm alarm= new Alarm();
-        alarm.setTriggerId(zabbixNotification.getTriggerId());
+    private VRAlarm createAlarm(ZabbixNotification zabbixNotification) {
+        VRAlarm vrAlarm = new VRAlarm();
+        vrAlarm.setThresholdId(zabbixNotification.getTriggerId());
 
         //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object. 
-        alarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
+        vrAlarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
         //EventTime: Time when the fault was observed. 
         DateFormat dateFormat= new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         Date date = new Date();
-        alarm.setEventTime(dateFormat.format(date));
+        vrAlarm.setEventTime(dateFormat.format(date));
 
         //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”. 
-        alarm.setAlarmState(AlarmState.FIRED);
+        vrAlarm.setAlarmState(AlarmState.FIRED);
         /*
         Type of the fault.The allowed values for the faultyType attribute depend
         on the type of the related managed object. For example, a resource of type “compute”
         may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc. 
         */
-        alarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
+        vrAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
         /*
         Identifier of the affected managed Object. The Managed Objects for this information element
         will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface. 
         */
         //TODO handle a notification fired by a threshold on more than one hostname
-        alarm.setResourceId(zabbixNotification.getHostName());
+        vrAlarm.setManagedObject(zabbixNotification.getHostName());
 
         //Perceived severity of the managed object failure
-        alarm.setPerceivedSeverity(getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
+        vrAlarm.setPerceivedSeverity(getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
 
-        return alarm;
+        return vrAlarm;
     }
 
     private PerceivedSeverity getPerceivedSeverity(String triggerSeverity) {
@@ -389,15 +518,15 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private FaultType getFaultType(String itemKey) {
         Metric metric;
-        int index= itemKey.indexOf('[');
+        int index = itemKey.indexOf('[');
         if(index!=-1)
             metric=getMetric(itemKey.substring(0, index));
         else metric=getMetric(itemKey);
 
-
         switch (metric){
             case SYSTEM_CPU_LOAD: return FaultType.COMPUTE_HOGS_CPU;
             case NET_TCP_LISTEN: return FaultType.IO_NETWORK_FRAME_TRANSMIT;
+
         }
         return null;
     }
@@ -448,9 +577,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             VirtualizedResourceAlarmNotification vran = (VirtualizedResourceAlarmNotification) event;
             String jsonAlarm = mapper.toJson(vran,VirtualizedResourceAlarmNotification.class);
             log.debug("Sending VirtualizedResourceAlarmNotification: "+jsonAlarm +" to: "+endpoint.getEndpoint());
-
-                response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
-
+            response=zabbixSender.doRestCallWithJson(endpoint.getEndpoint(),jsonAlarm, HttpMethod.POST,"application/json");
         }
         else if (event instanceof VirtualizedResourceAlarmStateChangedNotification){
             VirtualizedResourceAlarmStateChangedNotification vrascn= (VirtualizedResourceAlarmStateChangedNotification) event;
@@ -486,21 +613,45 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 if (performanceMetrics.isEmpty())
                     throw new MonitoringException("PerformanceMetrics is null");
                 pmJob = new PmJob(objectSelection, collectionPeriod);
-
                 for (String hostname : objectSelection.getObjectInstanceIds()) {
                     String hostId = zabbixApiManager.getHostId(hostname);
                     String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
                     for (String performanceMetric : performanceMetrics) {
-                        String itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, 0, 3, performanceMetric, interfaceId);
+                        log.debug("The performance metric is: "+performanceMetric);
+                        int type = getType(collectionPeriod);
+                        //Check if is present a LLD
+                        String itemId;
+                        if(performanceMetric.contains("{#FSNAME}") |
+                                performanceMetric.contains("{#FSTYPE}")|
+                                performanceMetric.contains("{#IFNAME}")|
+                                performanceMetric.contains("{#SNMPINDEX}")|
+                                performanceMetric.contains("{#SNMPVALUE}")){
+                            String ruleId = zabbixApiManager.getRuleId(hostId);
+                            itemId = zabbixApiManager.createPrototypeItem(collectionPeriod,hostId,interfaceId,performanceMetric,"ZabbixPrototypeItem on demand: "+ performanceMetric,type,0,ruleId);
+                            pmJob.addPerformanceMetric(itemId, performanceMetric);
+                        }
+                        else
+                            itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, type, 0, performanceMetric, interfaceId);
                         pmJob.addPerformanceMetric(itemId, performanceMetric);
                     }
                 }
             }
         }catch (Exception e){
+            log.error(e.getMessage(),e);
             throw new MonitoringException("The Pm job cannot be created: "+e.getMessage(),e);
         }
         pmJobs.put(pmJob.getPmjobId(),pmJob);
         return pmJob.getPmjobId();
+    }
+    // The type of the item can be Zabbix agent or Zabbix agent (active)
+    // Zabbix agent = 0
+    // Zabbix agent (active) = 7
+    // If the update interval of the item (collection period) is less or equals to 10 seconds than we create a
+    // Zabbix agent (active) item which is typically faster
+    private int getType(Integer collectionPeriod) {
+        if(collectionPeriod<=10)
+            return 7;
+        return 0;
     }
 
     @Override
@@ -516,8 +667,20 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 PmJob pmJob = pmJobs.get(pmJobId);
                 if (pmJob != null) {
                     List<String> itemIds = new ArrayList<>();
-                    itemIds.addAll(pmJob.getPerformanceMentricIds());
+                    List<String> prototypeItemIds = new ArrayList<>();
+                    //Map<String,String> performanceMetrics = pmJob.getPerformanceMetrics();
+                    for(Map.Entry<String,String> entry: pmJob.getPerformanceMetrics().entrySet()){
+                        if(entry.getValue().contains("{#FSNAME}") |
+                                entry.getValue().contains("{#FSTYPE}")|
+                                entry.getValue().contains("{#IFNAME}")|
+                                entry.getValue().contains("{#SNMPINDEX}")|
+                                entry.getValue().contains("{#SNMPVALUE}"))
+                            prototypeItemIds.add(entry.getKey());
+                        else
+                            itemIds.add(entry.getKey());
+                    }
                     zabbixApiManager.deleteItems(itemIds);
+                    zabbixApiManager.deletePrototypeItems(pmJobIdsToDelete);
                     deletedPmJobId.add(pmJobId);
                 }
 
@@ -555,14 +718,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         //TODO Investigate which are the cases where we need more than one objectSelector
         //Now we use only one objectSelector
         List<String> hostnames= objectSelector.getObjectInstanceIds();
-        Threshold threshold=null;
+        Threshold threshold;
         try {
             String firstHostname = hostnames.get(0);
             String thresholdExpression = "";
             for (String hostname : hostnames) {
                 String singleHostExpression = "";
-                if (!hostname.equals(firstHostname))
-                    singleHostExpression += "|";
+                if (!hostname.equals(firstHostname)){
+                    if(thresholdDetails.getHostOperator()!=null)
+                        singleHostExpression += thresholdDetails.getHostOperator();
+                }
                 singleHostExpression += "{" + hostname + ":" + performanceMetric;
                 if (thresholdDetails.getFunction() != null && !thresholdDetails.getFunction().isEmpty())
                     singleHostExpression += "." + thresholdDetails.getFunction();
@@ -570,16 +735,26 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 thresholdExpression += singleHostExpression;
             }
             log.debug("Threshold expression: " + thresholdExpression);
-            String thresholdName = "Threshold on demand " + random.nextInt(100);
-            String triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
-
+            String triggerId,thresholdName;
+            if(thresholdExpression.contains("{#FSNAME}") |
+                    thresholdExpression.contains("{#FSTYPE}")|
+                    thresholdExpression.contains("{#IFNAME}")|
+                    thresholdExpression.contains("{#SNMPINDEX}")|
+                    thresholdExpression.contains("{#SNMPVALUE}")){
+                thresholdName = "PrototypeThreshold on demand " + random.nextInt(100000);
+                triggerId = zabbixApiManager.createPrototypeTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
+            }
+            else {
+                thresholdName = "Threshold on demand " + random.nextInt(100000);
+                triggerId = zabbixApiManager.createTrigger(thresholdName, thresholdExpression, getPriority(thresholdDetails.getPerceivedSeverity()));
+            }
             threshold = new Threshold(objectSelector, performanceMetric, thresholdType, thresholdDetails);
             threshold.setThresholdId(triggerId);
 
             thresholds.put(threshold.getThresholdId(), threshold);
 
             //create an action to be notified when this threshold is crossed
-            String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", triggerId);
+            String actionId = zabbixApiManager.createAction("Action for (" + thresholdName + ")", thresholdName);
             triggerIdActionIdMap.put(triggerId, actionId);
         }catch (Exception e){
             throw new MonitoringException("The threshold cannot be created: "+e.getMessage(),e);
@@ -638,7 +813,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             InputStream is = t.getRequestBody();
 
             String message = read(is);
-            checkRequest(message);
+            try {
+                checkRequest(message);
+            } catch (UnirestException e) {
+                e.printStackTrace();
+            }
             String response = "";
             try {
                 t.sendResponseHeaders(200, response.length());
@@ -650,7 +829,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             }
         }
 
-        private void checkRequest(String message) {
+        private void checkRequest(String message) throws UnirestException {
             log.debug("\n\n");
             log.debug("Received: "+message);
             ZabbixNotification zabbixNotification;

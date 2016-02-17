@@ -26,8 +26,6 @@ import java.util.concurrent.TimeoutException;
 
 public class Starter {
 
-    private static Logger log = LoggerFactory.getLogger(PluginStarter.class);
-
     public static void main(String[] args) {
         Logger log = LoggerFactory.getLogger(Starter.class);
         if (args.length > 1) {

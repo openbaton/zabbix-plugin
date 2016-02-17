@@ -37,6 +37,21 @@ public class ZabbixApiManager {
         }
         return triggerId;
     }
+    public String createPrototypeTrigger(String description,String expression, Integer priority) throws MonitoringException {
+        log.debug("createPrototypeTrigger");
+        String prototypeTriggerId=null;
+        String params = "{'description':'"+description+"','expression':'"+expression+"', 'priority':'"+priority+"'}";
+
+        JsonObject responseObj = zabbixSender.callPost(params, "triggerprototype.create");
+        log.debug("response received (createPrototypeTrigger):"+responseObj);
+        JsonElement resultEl= responseObj.get("result");
+        if(resultEl!=null && resultEl.isJsonObject()){
+            JsonObject resultObj= resultEl.getAsJsonObject();
+            prototypeTriggerId= resultObj.get("triggerids").getAsJsonArray().get(0).getAsString();
+            log.debug("Created prototypetrigger with id: "+prototypeTriggerId);
+        }
+        return prototypeTriggerId;
+    }
     public List<String> delete(String object, List<String> idsToDelete) throws MonitoringException {
         List<String> objectIdDeleted= new ArrayList<>();
         String params="[";
@@ -68,11 +83,14 @@ public class ZabbixApiManager {
     public List<String> deleteItems(List<String> itemIdsToDelete) throws MonitoringException {
         return delete("item",itemIdsToDelete);
     }
+    public List<String> deletePrototypeItems(List<String> itemIdsToDelete) throws MonitoringException {
+        return delete("itemprototype",itemIdsToDelete);
+    }
     public List<String> deleteActions(List<String> actionIdsToDelete) throws MonitoringException {
         return delete("action",actionIdsToDelete);
     }
 
-    public String createAction( String actionName , String triggerId ) throws MonitoringException {
+    public String createAction( String actionName , String triggerName ) throws MonitoringException {
         log.debug("createAction");
         String actionId=null;
         ZabbixAction zabbixAction=new ZabbixAction();
@@ -96,10 +114,10 @@ public class ZabbixApiManager {
         List<Condition> conditions = new ArrayList<>();
 
         Condition condition1= new Condition();
-        condition1.setConditiontype(2);
-        condition1.setOperator(0);
+        condition1.setConditiontype(3);
+        condition1.setOperator(2);
         //triggerId
-        condition1.setValue(triggerId);
+        condition1.setValue(triggerName);
         conditions.add(condition1);
 
         //If commented we get notification also if the trigger switch from PROBLEM to OK
@@ -144,7 +162,7 @@ public class ZabbixApiManager {
         log.debug("Sending params: "+params);
 
         JsonObject responseObj = zabbixSender.callPost(params, "action.create");
-        log.debug("response received:"+responseObj);
+        log.debug("response received for creating action:"+responseObj);
 
         JsonElement resultEl= responseObj.get("result");
         if(resultEl!=null && resultEl.isJsonObject()){
@@ -157,7 +175,7 @@ public class ZabbixApiManager {
 
     // check parameter at url: https://www.zabbix.com/documentation/2.2/manual/api/reference/item/object
     public String createItem(String name,Integer delay,String hostId,Integer type,Integer valuetype,String itemKey,String interfaceId) throws MonitoringException {
-        String itemsId=null;
+        String itemsId;
         ZabbixItem item=new ZabbixItem(name,itemKey,hostId,type,valuetype,delay);
         item.setInterfaceId(interfaceId);
         String params= mapper.toJson(item,ZabbixItem.class);
@@ -179,7 +197,7 @@ public class ZabbixApiManager {
 
     public String getHostId(String hostname) throws MonitoringException {
         String hostId="";
-        String params="{\"output\":[\"hostid\"],\"filter\":{\"host\":[\""+hostname+"\"]}}";
+        String params="{'output': ['hostid'],'filter':{'host': ['"+hostname+"']}}";
         log.debug("Sending params for getHostId: "+params);
         JsonObject responseObj = zabbixSender.callPost(params, "host.get");
         log.debug("response received:"+responseObj);
@@ -187,10 +205,36 @@ public class ZabbixApiManager {
         JsonElement resultEl= responseObj.get("result");
         if(resultEl!=null && resultEl.isJsonArray()){
             JsonArray resultAr= resultEl.getAsJsonArray();
-            hostId = resultAr.get(0).getAsJsonObject().get("hostid").getAsString();
+            if(resultAr.size()==0)
+                throw new MonitoringException("No host found with name: "+hostname);
+            JsonObject resultObjectMap =  resultAr.get(0).getAsJsonObject();
+            hostId = resultObjectMap.get("hostid").getAsString();
             log.debug("The host id of "+hostname+" is : "+hostId);
         }
         return hostId;
+    }
+
+    public String createPrototypeItem(Integer delay,String hostId,String interfaceId,String key_,String name,Integer type,Integer value_type,String ruleId) throws MonitoringException {
+        String  prototypeItemsId;
+        ZabbixPrototypeItem prototypeItem= new ZabbixPrototypeItem(name,key_,hostId,type,value_type,delay);
+        prototypeItem.setInterfaceId(interfaceId);
+        prototypeItem.setRuleId(ruleId);
+
+        String params= mapper.toJson(prototypeItem,ZabbixPrototypeItem.class);
+        log.debug("Sending params (create prototype item): "+params);
+
+        JsonObject responseObj = zabbixSender.callPost(params, "itemprototype.create");
+        log.debug("response received:"+responseObj);
+
+        JsonElement resultEl= responseObj.get("result");
+        if(resultEl!=null && resultEl.isJsonObject()){
+            JsonObject resultObj= resultEl.getAsJsonObject();
+            JsonArray itemsIdsArray= resultObj.get("itemids").getAsJsonArray();
+            prototypeItemsId = itemsIdsArray.get(0).getAsString();
+            log.debug("Created the following prototype item ids: "+prototypeItemsId);
+        } else throw new MonitoringException("Unknown response from zabbix server: "+responseObj);
+
+        return prototypeItemsId;
     }
 
     public String getHostInterfaceId(String hostID) throws MonitoringException {
@@ -213,5 +257,38 @@ public class ZabbixApiManager {
         }
         log.debug("The interface id is:"+interfaceId);
         return interfaceId;
+    }
+
+    public String getPrototypeTriggerId(String ruleId) throws MonitoringException {
+        String params="{\n" +
+                "        'output': 'extend',\n" +
+                "        'discoveryids': '"+ruleId+"'\n" +
+                "    }";
+        JsonObject responseObj = zabbixSender.callPost(params, "triggerprototype.get");
+        JsonElement resultEl= responseObj.get("result");
+        log.debug("Received result: "+resultEl.toString());
+        if(resultEl!=null && resultEl.isJsonArray()){
+            JsonArray resultAr= resultEl.getAsJsonArray();
+
+            JsonObject ruleObj= resultAr.get(0).getAsJsonObject();
+            ruleId = ruleObj.get("triggerid").getAsString();
+        }
+        return ruleId;
+    }
+
+    public String getRuleId(String hostId) throws MonitoringException {
+        String ruleId="";
+        String params="{'output':'extend','hostids':'"+hostId+"'}";
+        log.debug("Sending param: "+params);
+        JsonObject responseObj = zabbixSender.callPost(params, "discoveryrule.get");
+        JsonElement resultEl= responseObj.get("result");
+        log.debug("Received result: "+resultEl.toString());
+        if(resultEl!=null && resultEl.isJsonArray()){
+            JsonArray resultAr= resultEl.getAsJsonArray();
+
+            JsonObject ruleObj = resultAr.get(0).getAsJsonObject();
+            ruleId = ruleObj.get("itemid").getAsString();
+        }
+        return ruleId;
     }
 }
