@@ -174,14 +174,19 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     break;
                 }
                 historyImportant.add(entry);
-                if (!iterator.hasNext() && entry.getTime() > startingTime)
-                    throw new MonitoringException("The period is too long for the existing history.");
+                if (!iterator.hasNext() && entry.getTime() > startingTime) {
+                    if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                        return items;
+                    else
+                        throw new MonitoringException("The period is too long for the existing history.");
+                }
             }
 
             for (String host : hostnames) {
                 // check if the host exists in the latest state of history
                 if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
-                    throw new MonitoringException("The hostname " + host + " does not exist.");
+                    if (Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                        throw new MonitoringException("The hostname " + host + " does not exist.");
 
                 for (String metric : metrics) {
                     Iterator<State> historyIterator = historyImportant.iterator();
@@ -192,24 +197,31 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
                     HistoryObject hObj = historyIterator.next().getHostsHistory().get(host);
                     if (!hObj.keyExists(metric))
-                        throw new MonitoringException("The metric " + metric + " does not exist for host " + host + ".");
+                        if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                            continue;
+                        else
+                            throw new MonitoringException("The metric " + metric + " does not exist for host " + host + ".");
 
                     item.setHostId(hObj.getHostId());
 
                     String value = hObj.getMeasurement(metric);
                     item.setLastValue(value);
 
-                    Double avg = (Double) tryParse(value);
+                    Double avg = tryParse(value);
                     if (avg != null) { // it is a number and no string
                         while (historyIterator.hasNext()) {
                             Map<String, HistoryObject> hostsAndHistory = historyIterator.next().getHostsHistory();
                             if (!hostsAndHistory.containsKey(host)) {
-                                throw new MonitoringException("The period is too long for host " + host +
-                                        " because he just started existing inside the specified time frame.");
+                                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                                    continue;
+                                else
+                                    throw new MonitoringException("The period is too long for host " + host + " because he just started existing inside the specified time frame.");
                             }
                             if (!hostsAndHistory.get(host).keyExists(metric)) {
-                                throw new MonitoringException("The metric " + metric +
-                                        "did not exist at every time in the specified period for host " + host + ".");
+                                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                                    continue;
+                                else
+                                    throw new MonitoringException("The metric " + metric + "did not exist at every time in the specified period for host " + host + ".");
                             }
                             avg += Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
                         }
