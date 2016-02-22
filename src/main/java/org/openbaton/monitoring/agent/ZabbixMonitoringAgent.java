@@ -235,10 +235,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                         }
                         avg /= historyImportant.size();
                         value = avg.toString();
+                        log.debug("Value found is: " + value);
                     }
                     // if the metric's value is a String, just store the last value as value
                     item.setValue(value);
 
+                    log.debug("Adding item: " + item);
                     items.add(item);
                 }
             }
