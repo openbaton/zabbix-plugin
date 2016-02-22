@@ -50,6 +50,12 @@ public class HistoryObject implements Serializable {
         return measurements.containsKey(key);
     }
 
-
-
+    @Override
+    public String toString() {
+        return "HistoryObject{" +
+                "hostId='" + hostId + '\'' +
+                ", measurements=" + measurements +
+                '}';
+    }
 }
+

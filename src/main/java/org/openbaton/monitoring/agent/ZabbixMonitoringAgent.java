@@ -52,8 +52,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.primitives.Doubles.tryParse;
-
 /**
  * Created by mob on 22.10.15.
  */
@@ -184,6 +182,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 }
             }
 
+            log.debug("Calculated History is: " + historyImportant.toString());
+
             for (String host : hostnames) {
                 // check if the host exists in the latest state of history
                 if (!historyImportant.peekFirst().getHostsHistory().containsKey(host))
@@ -197,7 +197,18 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     item.setHostname(host);
                     item.setMetric(metric);
 
-                    HistoryObject hObj = historyIterator.next().getHostsHistory().get(host);
+
+                    Map<String, HistoryObject> hostsHistory = historyImportant.get(historyImportant.size() - 1).getHostsHistory();
+                    log.debug("All hosts are: " + hostsHistory.keySet());
+
+                    if (!hostsHistory.keySet().contains(host)) {
+                        log.warn("Host " + host + " is not contained in the history");
+                        break;
+                    }
+
+                    HistoryObject hObj = hostsHistory.get(host);
+                    log.debug("HistoryObject is: " + hObj);
+
                     if (!hObj.keyExists(metric))
                         if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
                             log.warn("The metric " + metric + " does not exist for host " + host + ".");
@@ -209,10 +220,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                     item.setHostId(hObj.getHostId());
 
                     String value = hObj.getMeasurement(metric);
-                    item.setLastValue(value);
+                    item.setLastValue("" + Double.parseDouble(value));
 
-                    Double avg = tryParse(value);
+                    Double avg = Double.valueOf(0);
                     if (avg != null) { // it is a number and no string
+                        int tot=0;
                         while (historyIterator.hasNext()) {
                             Map<String, HistoryObject> hostsAndHistory = historyIterator.next().getHostsHistory();
                             if (!hostsAndHistory.containsKey(host)) {
@@ -231,14 +243,17 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                                 else
                                     throw new MonitoringException("The metric " + metric + "did not exist at every time in the specified period for host " + host + ".");
                             }
-                            avg += Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
+                            Double parseDouble = Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
+                            log.debug("HistoryValue is: " + parseDouble);
+                            avg += parseDouble;
+                            tot++;
                         }
-                        avg /= historyImportant.size();
-                        value = avg.toString();
-                        log.debug("Value found is: " + value);
+                        log.debug(avg + " / " + tot + " = " + (avg/tot));
+                        avg /= tot;
+                        log.debug("Value found is: " + avg);
                     }
                     // if the metric's value is a String, just store the last value as value
-                    item.setValue(value);
+                    item.setValue("" + avg);
 
                     log.debug("Adding item: " + item);
                     items.add(item);
@@ -422,12 +437,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         Date date = new Date();
         datacenterAlarm.setEventTime(dateFormat.format(date));
 
-        //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”.
+        //AlarmState: State of the alarm, e.g. âfiredâ, âupdatedâ, âclearedâ.
         datacenterAlarm.setAlarmState(AlarmState.FIRED);
         /*
         Type of the fault.The allowed values for the faultyType attribute depend
-        on the type of the related managed object. For example, a resource of type “compute”
-        may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc.
+        on the type of the related managed object. For example, a resource of type âcomputeâ
+        may have faults of type âCPU failureâ, âmemory failureâ, ânetwork card failureâ, etc.
         */
         datacenterAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
         /*
@@ -488,24 +503,24 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         VRAlarm vrAlarm = new VRAlarm();
         vrAlarm.setThresholdId(zabbixNotification.getTriggerId());
 
-        //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object. 
+        //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object.
         vrAlarm.setAlarmRaisedTime(zabbixNotification.getEventDate()+" "+zabbixNotification.getEventTime());
-        //EventTime: Time when the fault was observed. 
+        //EventTime: Time when the fault was observed.
         DateFormat dateFormat= new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         Date date = new Date();
         vrAlarm.setEventTime(dateFormat.format(date));
 
-        //AlarmState: State of the alarm, e.g. “fired”, “updated”, “cleared”. 
+        //AlarmState: State of the alarm, e.g. âfiredâ, âupdatedâ, âclearedâ.
         vrAlarm.setAlarmState(AlarmState.FIRED);
         /*
         Type of the fault.The allowed values for the faultyType attribute depend
-        on the type of the related managed object. For example, a resource of type “compute”
-        may have faults of type “CPU failure”, “memory failure”, “network card failure”, etc. 
+        on the type of the related managed object. For example, a resource of type âcomputeâ
+        may have faults of type âCPU failureâ, âmemory failureâ, ânetwork card failureâ, etc.
         */
         vrAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
         /*
         Identifier of the affected managed Object. The Managed Objects for this information element
-        will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface. 
+        will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface.
         */
         //TODO handle a notification fired by a threshold on more than one hostname
         vrAlarm.setManagedObject(zabbixNotification.getHostName());
@@ -884,3 +899,4 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
 
 }
+

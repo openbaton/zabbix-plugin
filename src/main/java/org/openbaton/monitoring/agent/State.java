@@ -43,4 +43,13 @@ public class State {
     public Map<String, HistoryObject> getHostsHistory() {
         return hostsHistory;
     }
+
+
+    @Override
+    public String toString() {
+        return "State{" +
+                "hostsHistory=" + hostsHistory +
+                ", time=" + time +
+                '}';
+    }
 }
