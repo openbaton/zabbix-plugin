@@ -151,6 +151,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     //@Override
     public List<Item> getMeasurementResults(List<String> hostnames, List<String> metrics, String period) throws MonitoringException {
 
+        log.info("Looking for items for hostnames: " + hostnames.toString());
+
         List<Item> items = new LinkedList<>();
         long currTime = System.currentTimeMillis()/1000;
         long startingTime = currTime - Long.parseLong(period); // that's the point of time where requested history starts
@@ -197,8 +199,10 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
                     HistoryObject hObj = historyIterator.next().getHostsHistory().get(host);
                     if (!hObj.keyExists(metric))
-                        if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                        if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                            log.warn("The metric " + metric + " does not exist for host " + host + ".");
                             continue;
+                        }
                         else
                             throw new MonitoringException("The metric " + metric + " does not exist for host " + host + ".");
 
@@ -212,14 +216,18 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                         while (historyIterator.hasNext()) {
                             Map<String, HistoryObject> hostsAndHistory = historyIterator.next().getHostsHistory();
                             if (!hostsAndHistory.containsKey(host)) {
-                                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                                    log.warn("The period is too long for host " + host + " because he just started existing inside the specified time frame.");
                                     continue;
+                                }
                                 else
                                     throw new MonitoringException("The period is too long for host " + host + " because he just started existing inside the specified time frame.");
                             }
                             if (!hostsAndHistory.get(host).keyExists(metric)) {
-                                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false")))
+                                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                                    log.warn("The metric " + metric + "did not exist at every time in the specified period for host " + host + ".");
                                     continue;
+                                }
                                 else
                                     throw new MonitoringException("The metric " + metric + "did not exist at every time in the specified period for host " + host + ".");
                             }

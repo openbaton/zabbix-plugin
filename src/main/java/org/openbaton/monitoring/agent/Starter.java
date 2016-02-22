@@ -31,7 +31,7 @@ public class Starter {
         if (args.length > 1) {
             log.info("Starting plugin with params: pluginName=" + args[0] + " registryIp=" + args[1] + " registryPort=" + args[2]);
             try {
-                PluginStarter.registerPlugin(ZabbixMonitoringAgent.class, args[0], args[1], Integer.parseInt(args[2]), Integer.parseInt(args[2]));
+                PluginStarter.registerPlugin(ZabbixMonitoringAgent.class, args[0], args[1], Integer.parseInt(args[2]), 1);
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (TimeoutException e) {
