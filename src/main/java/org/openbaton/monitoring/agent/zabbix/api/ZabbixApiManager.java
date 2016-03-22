@@ -67,7 +67,14 @@ public class ZabbixApiManager {
         JsonElement resultEl= responseObj.get("result");
         if(resultEl!=null && resultEl.isJsonObject()){
             JsonObject resultObj= resultEl.getAsJsonObject();
-            JsonArray objectIdsArray= resultObj.get(object+"ids").getAsJsonArray();
+            JsonArray objectIdsArray;
+            if(object.equals("itemprototype")){
+                objectIdsArray= resultObj.get("prototypeids").getAsJsonArray();
+            }
+            else if(object.equals("triggerprototype")){
+                objectIdsArray= resultObj.get("triggerids").getAsJsonArray();
+            }
+            else objectIdsArray = resultObj.get(object+"ids").getAsJsonArray();
             for (int i =0 ; i<objectIdsArray.size(); i++){
                 objectIdDeleted.add(objectIdsArray.get(i).getAsString());
             }
@@ -79,6 +86,9 @@ public class ZabbixApiManager {
 
     public List<String> deleteTriggers(List<String> triggersIds) throws MonitoringException {
         return delete("trigger",triggersIds);
+    }
+    public List<String> deleteTriggerPrototype(List<String> triggersIds) throws MonitoringException {
+        return delete("triggerprototype",triggersIds);
     }
     public List<String> deleteItems(List<String> itemIdsToDelete) throws MonitoringException {
         return delete("item",itemIdsToDelete);

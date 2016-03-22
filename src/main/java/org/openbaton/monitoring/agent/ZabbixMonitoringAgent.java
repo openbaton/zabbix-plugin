@@ -303,30 +303,48 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
         datacenterAlarms=new HashMap<>();
 
-        // test
-        /*try {
-            String hostId = zabbixApiManager.getHostId("iperf-server-910");
+        /*// test
+        try {
+            String hostId = zabbixApiManager.getHostId("elasticapp-724");
             String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
             String ruleId = zabbixApiManager.getRuleId(hostId);
 
-            //zabbixApiManager.createPrototypeItem(10,hostId,interfaceId,"net.if.in[{#IFNAME},bytes]","nome parametro",7,0,ruleId);
-        } catch (MonitoringException e) {
-            e.printStackTrace();
-        }*/
-        /*String actionId="";
-        try {
+            String pItemId = zabbixApiManager.createPrototypeItem(10,hostId,interfaceId,"net.if.in[{#IFNAME},bytes]","nome parametro",7,0,ruleId);
+
+            String actionId="";
+
+            String triggerId = zabbixApiManager.createPrototypeTrigger("TEST threshold prototype","{elasticapp-724:net.if.in[{#IFNAME},bytes].last()}>120000",getPriority(PerceivedSeverity.MAJOR));
+
             // nome: PrototypeThreshold on demand 57
             // host id of iperf-server-359 = 10816
-            String hostId = zabbixApiManager.getHostId("iperf-server-519");
+            *//*String hostId = zabbixApiManager.getHostId("iperf-server-519");
             String ruleId = zabbixApiManager.getRuleId("10816");
             log.debug("Rule id net: "+ruleId);
             String prototypeTriggerId = zabbixApiManager.getPrototypeTriggerId(ruleId);
-            log.debug("The prototype trigger id are: "+prototypeTriggerId);
+            log.debug("The prototype trigger id are: "+prototypeTriggerId);*//*
             //actionId = zabbixApiManager.createAction("Action for (PrototypeThreshold on demand 57)", "PrototypeThreshold on demand 57");
+
+            actionId = zabbixApiManager.createAction("Action for TEST", "TEST threshold prototype");
+
+
+
+            List<String> triggersToRemove = new ArrayList<>();
+            triggersToRemove.add(triggerId);
+            List<String> triggerIdDeleted = zabbixApiManager.deleteTriggerPrototype(triggersToRemove);
+
+            List<String> actionIdsToDelete=new ArrayList<>();
+            actionIdsToDelete.add(actionId);
+            List<String> actionIdDeleted = zabbixApiManager.deleteActions(actionIdsToDelete);
+
+
+            List<String> pItemsToRemove = new ArrayList<>();
+            pItemsToRemove.add(pItemId);
+
+            zabbixApiManager.deletePrototypeItems(pItemsToRemove);
+
         } catch (MonitoringException e) {
-            log.error("test "+e.getMessage(),e);
-        }
-        log.debug("Success: "+actionId);*/
+            log.error(e.getMessage(),e);
+        }*/
     }
     /**
      * terminate the scheduler safely
@@ -658,18 +676,15 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                         int type = getType(collectionPeriod);
                         //Check if is present a LLD
                         String itemId;
-                        if(performanceMetric.contains("{#FSNAME}") |
-                                performanceMetric.contains("{#FSTYPE}")|
-                                performanceMetric.contains("{#IFNAME}")|
-                                performanceMetric.contains("{#SNMPINDEX}")|
-                                performanceMetric.contains("{#SNMPVALUE}")){
+                        if(isPrototype(performanceMetric)){
                             String ruleId = zabbixApiManager.getRuleId(hostId);
                             itemId = zabbixApiManager.createPrototypeItem(collectionPeriod,hostId,interfaceId,performanceMetric,"ZabbixPrototypeItem on demand: "+ performanceMetric,type,0,ruleId);
                             pmJob.addPerformanceMetric(itemId, performanceMetric);
                         }
-                        else
+                        else {
                             itemId = zabbixApiManager.createItem("ZabbixItem on demand: " + performanceMetric, collectionPeriod, hostId, type, 0, performanceMetric, interfaceId);
-                        pmJob.addPerformanceMetric(itemId, performanceMetric);
+                            pmJob.addPerformanceMetric(itemId, performanceMetric);
+                        }
                     }
                 }
             }
@@ -699,29 +714,29 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             throw new MonitoringException("The list of pmJob is empty");
         List<String> deletedPmJobId=new ArrayList<>();
         try {
-
+            log.debug("TO delete: "+ pmJobIdsToDelete);
             for (String pmJobId : pmJobIdsToDelete) {
                 PmJob pmJob = pmJobs.get(pmJobId);
+                log.debug("Current PM job: "+pmJob);
                 if (pmJob != null) {
                     List<String> itemIds = new ArrayList<>();
                     List<String> prototypeItemIds = new ArrayList<>();
                     //Map<String,String> performanceMetrics = pmJob.getPerformanceMetrics();
                     for(Map.Entry<String,String> entry: pmJob.getPerformanceMetrics().entrySet()){
-                        if(entry.getValue().contains("{#FSNAME}") |
-                                entry.getValue().contains("{#FSTYPE}")|
-                                entry.getValue().contains("{#IFNAME}")|
-                                entry.getValue().contains("{#SNMPINDEX}")|
-                                entry.getValue().contains("{#SNMPVALUE}"))
+                        if(isPrototype(entry.getValue()))
                             prototypeItemIds.add(entry.getKey());
                         else
                             itemIds.add(entry.getKey());
                     }
-                    zabbixApiManager.deleteItems(itemIds);
-                    zabbixApiManager.deletePrototypeItems(pmJobIdsToDelete);
+                    if(!itemIds.isEmpty())
+                        zabbixApiManager.deleteItems(itemIds);
+                    if(!prototypeItemIds.isEmpty())
+                        zabbixApiManager.deletePrototypeItems(prototypeItemIds);
                     deletedPmJobId.add(pmJobId);
                 }
 
             }
+            log.debug("Deleted pmjobs: "+ pmJobIdsToDelete);
         }catch (Exception e){
             throw new MonitoringException("The Pm job cannot be deleted: "+e.getMessage(),e);
         }
@@ -773,11 +788,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             }
             log.debug("Threshold expression: " + thresholdExpression);
             String triggerId,thresholdName;
-            if(thresholdExpression.contains("{#FSNAME}") |
-                    thresholdExpression.contains("{#FSTYPE}")|
-                    thresholdExpression.contains("{#IFNAME}")|
-                    thresholdExpression.contains("{#SNMPINDEX}")|
-                    thresholdExpression.contains("{#SNMPVALUE}")){
+            if(isPrototype(thresholdExpression)){
                 thresholdName = "PrototypeThreshold on demand " + random.nextInt(100000);
                 triggerId = zabbixApiManager.createPrototypeTrigger(thresholdName,thresholdExpression,getPriority(thresholdDetails.getPerceivedSeverity()));
             }
@@ -801,31 +812,72 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     @Override
     public List<String> deleteThreshold(List<String> thresholdIds) throws MonitoringException {
-        List<String> triggerIdDeleted=null;
+        if(thresholdIds == null)
+            throw new MonitoringException("The list of thresholdIds ids is null");
+        if(thresholdIds.isEmpty())
+            throw new MonitoringException("The list of thresholdIds is empty");
+        List<String> thresholdIdsDeleted=new ArrayList<>();
         try {
-            triggerIdDeleted = zabbixApiManager.deleteTriggers(thresholdIds);
-            if (!triggerIdDeleted.containsAll(thresholdIds)) {
-                log.warn("Triggers deleted: " + triggerIdDeleted + " are less than the triggers to delete: " + thresholdIds);
+            List<String> triggerIdsToDelete = new ArrayList<>();
+            List<String> prototypeTriggerIdsToDelete = new ArrayList<>();
+            for(String thresholdIdToDelete : thresholdIds) {
+                Threshold thresholdToDelete = thresholds.get(thresholdIdToDelete);
+                if(thresholdToDelete!=null){
+                    if(isPrototype(thresholdToDelete.getPerformanceMetric())){
+                        prototypeTriggerIdsToDelete.add(thresholdIdToDelete);
+                    }
+                    else triggerIdsToDelete.add(thresholdIdToDelete);
+                }
             }
+            List<String> triggerIdsDeleted=new ArrayList<>();
+            if(triggerIdsToDelete.size()!=0){
+                triggerIdsDeleted = zabbixApiManager.deleteTriggers(triggerIdsToDelete);
+                if (!triggerIdsToDelete.containsAll(triggerIdsDeleted)) {
+                    log.warn("Triggers deleted: " + triggerIdsDeleted + " are less than the Triggers to delete: " + triggerIdsToDelete);
+                }
+            }
+            List<String> prototypeTriggerIdsDeleted=new ArrayList<>();
+            if(prototypeTriggerIdsToDelete.size()!=0){
+                prototypeTriggerIdsDeleted = zabbixApiManager.deleteTriggerPrototype(prototypeTriggerIdsToDelete);
+                if (!prototypeTriggerIdsToDelete.containsAll(prototypeTriggerIdsDeleted)) {
+                    log.warn("PrototypeTriggers deleted: " + prototypeTriggerIdsDeleted + " are less than the prototypeTriggers to delete: " + prototypeTriggerIdsToDelete);
+                }
+            }
+
             //Here we are going to delete the actions linked with the triggers effectively DELETED
-            List<String> actionIdsToDelete = getActions(triggerIdDeleted);
+            List<String> actionIdsToDelete = getActions(triggerIdsDeleted);
+            actionIdsToDelete.addAll(getActions(prototypeTriggerIdsDeleted));
             List<String> actionIdDeleted = zabbixApiManager.deleteActions(actionIdsToDelete);
             if (!actionIdsToDelete.containsAll(actionIdDeleted)) {
                 log.warn("Actions deleted: " + actionIdDeleted + " are less than the actions to delete: " + actionIdsToDelete);
             }
 
             //Update the local state
-            for (String triggerId : triggerIdDeleted) {
+            List<String> totalTriggerIdsDeleted = new ArrayList<>();
+            totalTriggerIdsDeleted.addAll(prototypeTriggerIdsDeleted);
+            totalTriggerIdsDeleted.addAll(triggerIdsDeleted);
+            for (String triggerId : totalTriggerIdsDeleted) {
                 thresholds.remove(triggerId);
                 String actionId = triggerIdActionIdMap.get(triggerId);
                 if (!actionIdDeleted.contains(actionId))
                     log.warn("The action with id:" + actionId + " referred to the trigger id: " + triggerId + " needs to be removed manually on zabbix");
                 triggerIdActionIdMap.remove(triggerId);
             }
+            thresholdIdsDeleted=totalTriggerIdsDeleted;
         }catch (Exception e){
-            throw new MonitoringException("The threshold cannot be deleted: "+e.getMessage(),e);
+            throw new MonitoringException("The thresholds cannot be deleted: "+e.getMessage(),e);
         }
-        return triggerIdDeleted;
+        return thresholdIdsDeleted;
+    }
+
+    private boolean isPrototype(String performanceMetric) {
+        if(performanceMetric.contains("{#FSNAME}") |
+                performanceMetric.contains("{#FSTYPE}")|
+                performanceMetric.contains("{#IFNAME}")|
+                performanceMetric.contains("{#SNMPINDEX}")|
+                performanceMetric.contains("{#SNMPVALUE}"))
+            return true;
+        return false;
     }
 
     private List<String> getActions(List<String> triggerIdDeleted) {
