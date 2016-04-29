@@ -354,7 +354,7 @@ it creates an alarm (mapping zabbix notification into standard Alarm) and notify
 
 [IFA005_Or-Vi_ref_point_Spec]:https://docbox.etsi.org/isg/nfv/open/Drafts/IFA005_Or-Vi_ref_point_Spec/
 [NFV MANO]:http://www.etsi.org/deliver/etsi_gs/NFV-MAN/001_099/001/01.01.01_60/gs_nfv-man001v010101p.pdf
-[zabbix-plugin-architecture]:images/zabbix-plugin-architecture.png
+[zabbix-plugin-architecture]:img/zabbix-plugin-architecture.png
 [zabbix-doc-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/items/itemtypes/zabbix_agent
 [zabbix-trigger-function-2.2]:https://www.zabbix.com/documentation/2.2/manual/appendix/triggers/functions
 [zabbix-trigger-expression-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/triggers/expression
