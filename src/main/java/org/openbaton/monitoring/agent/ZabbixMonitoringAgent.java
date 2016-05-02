@@ -23,6 +23,8 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.openbaton.catalogue.mano.common.faultmanagement.VirtualizedResourceAlarmNotification;
+import org.openbaton.catalogue.mano.common.faultmanagement.VirtualizedResourceAlarmStateChangedNotification;
 import org.openbaton.catalogue.mano.common.monitoring.*;
 import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
@@ -30,8 +32,6 @@ import org.openbaton.catalogue.util.IdGenerator;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.alarm.catalogue.DatacenterAlarm;
 import org.openbaton.monitoring.agent.alarm.catalogue.Metric;
-import org.openbaton.monitoring.agent.alarm.catalogue.VirtualizedResourceAlarmNotification;
-import org.openbaton.monitoring.agent.alarm.catalogue.VirtualizedResourceAlarmStateChangedNotification;
 import org.openbaton.monitoring.agent.connectivitymanager.ConnectivityManagerClient;
 import org.openbaton.monitoring.agent.connectivitymanager.Host;
 import org.openbaton.monitoring.agent.performance.management.catalogue.PmJob;
@@ -925,7 +925,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             try {
                 zabbixNotification = mapper.fromJson(message, ZabbixNotification.class);
             }catch (Exception e){
-                log.warn("Impossible to retrive the ZabbixNotification received",e);
+                log.warn("Impossible to retrieve the ZabbixNotification received",e);
                 return;
             }
             log.debug("\n");
