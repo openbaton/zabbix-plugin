@@ -265,11 +265,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private void init() throws RemoteException {
         loadProperties();
-        String zabbixIp = properties.getProperty("zabbix-ip");
+        String zabbixHost = properties.getProperty("zabbix-host");
         String zabbixPort = properties.getProperty("zabbix-port");
         String username = properties.getProperty("user-zbx");
         String password = properties.getProperty("password-zbx");
-        zabbixSender = new ZabbixSender(zabbixIp,zabbixPort,username,password);
+        Boolean zabbixSsl = Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false"));
+        zabbixSender = new ZabbixSender(zabbixHost,zabbixPort, zabbixSsl,username,password);
         zabbixApiManager= new ZabbixApiManager(zabbixSender);
         String nrsp=properties.getProperty("notification-receiver-server-port","8010");
         notificationReceiverServerPort=Integer.parseInt(nrsp);

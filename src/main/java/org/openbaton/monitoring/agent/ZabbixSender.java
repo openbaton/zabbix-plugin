@@ -35,21 +35,23 @@ public class ZabbixSender implements RestSender{
     private Logger log = LoggerFactory.getLogger(this.getClass());
     private Gson mapper=new GsonBuilder().setPrettyPrinting().create();
     private String TOKEN;
-    private String zabbixIp;
+    private String zabbixHost;
     private String zabbixPort;
     private String zabbixURL;
     private String username;
     private String password;
 
-    public ZabbixSender(String zabbixIp,String zabbixPort, String username, String password){
-        this.zabbixIp=zabbixIp;
+    public ZabbixSender(String zabbixHost,String zabbixPort, Boolean zabbixSsl, String username, String password){
+        this.zabbixHost =zabbixHost;
         this.username=username;
         this.password=password;
+        String protocol = zabbixSsl ? "https://" : "http://";
+
         if (zabbixPort == null || zabbixPort.equals("")) {
-            zabbixURL = "http://" + zabbixIp + "/zabbix/api_jsonrpc.php";
+            zabbixURL = protocol + zabbixHost + "/zabbix/api_jsonrpc.php";
         }
         else {
-            zabbixURL = "http://" + zabbixIp + ":" + zabbixPort + "/zabbix/api_jsonrpc.php";
+            zabbixURL = protocol + zabbixHost + ":" + zabbixPort + "/zabbix/api_jsonrpc.php";
             this.zabbixPort=zabbixPort;
         }
     }
@@ -78,7 +80,7 @@ public class ZabbixSender implements RestSender{
             /*
 			 * authenticate again, because the last token is expired
 			 */
-                authenticate(zabbixIp, username, password);
+                authenticate(zabbixHost, username, password);
                 body = prepareJson(content, method);
                 jsonResponse = doRestCallWithJson(zabbixURL, body, HttpMethod.POST, "application/json-rpc");
             }
@@ -150,8 +152,8 @@ public class ZabbixSender implements RestSender{
         return false;
     }
 
-    public void authenticate(String zabbixIp, String username, String password) throws MonitoringException {
-        this.zabbixIp = zabbixIp;
+    public void authenticate(String zabbixHost, String username, String password) throws MonitoringException {
+        this.zabbixHost = zabbixHost;
         this.username = username;
         this.password = password;
 
