@@ -49,7 +49,8 @@ public class ZabbixApiManagerTest {
                 properties.load(is);
             }
         }
-        ZabbixSender zabbixSender = new ZabbixSender(properties.getProperty("zabbix-ip"),properties.getProperty("zabbix-port"),properties.getProperty("user"), properties.getProperty("password"));
+        ZabbixSender zabbixSender = new ZabbixSender(properties.getProperty("zabbix-host"),properties.getProperty("zabbix-port"),
+                Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false")), properties.getProperty("user"), properties.getProperty("password"));
         zabbixApiManager= new ZabbixApiManager(zabbixSender);
     }
 
