@@ -78,7 +78,7 @@ Create a configuration file called zabbix-plugin.conf in the path /etc/openbaton
 | type                                  |  The type of the plugin       | zabbix-plugin
 | user-zbx                              |  User of the Zabbix Server    | 
 | password-zbx                          |  Password of Zabbix Server    |
-| client-request-frequency              |  Update cache period (Basically each time t, the zabbix plugin ask to every items value for all hosts and fill the local cache)   | 15 (seconds)
+| client-request-frequency              |  Update cache period (Basically each time t, the zabbix plugin ask to every items value for all hosts and fill the local cache). Set 0 to disable it   | 15 (seconds)
 | history-length                        |  How long is the history. If the client-request-frequency is 10 seconds and history-length 100, we have available the value of the items of the previous 1000 seconds. | 250
 | notification-receiver-server-context  |  Context where the zabbix-plugin receive the notifications by the zabbix server. (see the section 'How to configure Zabbix to get notifications') | /zabbixplugin/notifications 
 | notification-receiver-server-port     |  Port where the zabbix-plugin receive the notifications by the zabbix server. | 8010
