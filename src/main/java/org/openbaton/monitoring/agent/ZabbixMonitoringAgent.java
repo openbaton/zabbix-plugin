@@ -294,58 +294,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             log.error("Authentication failed: " + e.getMessage());
             throw new RemoteException("Authentication to Zabbix server failed.");
         }
-        try {
-            connectivityManagerClient = new ConnectivityManagerClient(properties.getProperty("connectivity-manager-ip"), properties.getProperty("connectivity-manager-port"), zabbixSender);
-        }catch(Exception e){
-            log.warn(e.getMessage());
-            connectivityManagerClient=null;
+        if(requestFrequency>0) {
+            updateHistory.run();
+            scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
         }
-        updateHistory.run();
-        scheduler.scheduleAtFixedRate(updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
         datacenterAlarms=new HashMap<>();
-
-        /*// test
-        try {
-            String hostId = zabbixApiManager.getHostId("elasticapp-724");
-            String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
-            String ruleId = zabbixApiManager.getRuleId(hostId);
-
-            String pItemId = zabbixApiManager.createPrototypeItem(10,hostId,interfaceId,"net.if.in[{#IFNAME},bytes]","nome parametro",7,0,ruleId);
-
-            String actionId="";
-
-            String triggerId = zabbixApiManager.createPrototypeTrigger("TEST threshold prototype","{elasticapp-724:net.if.in[{#IFNAME},bytes].last()}>120000",getPriority(PerceivedSeverity.MAJOR));
-
-            // nome: PrototypeThreshold on demand 57
-            // host id of iperf-server-359 = 10816
-            *//*String hostId = zabbixApiManager.getHostId("iperf-server-519");
-            String ruleId = zabbixApiManager.getRuleId("10816");
-            log.debug("Rule id net: "+ruleId);
-            String prototypeTriggerId = zabbixApiManager.getPrototypeTriggerId(ruleId);
-            log.debug("The prototype trigger id are: "+prototypeTriggerId);*//*
-            //actionId = zabbixApiManager.createAction("Action for (PrototypeThreshold on demand 57)", "PrototypeThreshold on demand 57");
-
-            actionId = zabbixApiManager.createAction("Action for TEST", "TEST threshold prototype");
-
-
-
-            List<String> triggersToRemove = new ArrayList<>();
-            triggersToRemove.add(triggerId);
-            List<String> triggerIdDeleted = zabbixApiManager.deleteTriggerPrototype(triggersToRemove);
-
-            List<String> actionIdsToDelete=new ArrayList<>();
-            actionIdsToDelete.add(actionId);
-            List<String> actionIdDeleted = zabbixApiManager.deleteActions(actionIdsToDelete);
-
-
-            List<String> pItemsToRemove = new ArrayList<>();
-            pItemsToRemove.add(pItemId);
-
-            zabbixApiManager.deletePrototypeItems(pItemsToRemove);
-
-        } catch (MonitoringException e) {
-            log.error(e.getMessage(),e);
-        }*/
     }
     /**
      * terminate the scheduler safely
@@ -375,11 +328,11 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
     private void handleNotification(ZabbixNotification zabbixNotification) throws UnirestException {
 
-        if(isDatacenterNotification(zabbixNotification)){
+        /*if(isDatacenterNotification(zabbixNotification)){
             log.debug("Received a datacenter alarm from: "+zabbixNotification.getHostName());
             handleDatacenterNotification(zabbixNotification);
             return;
-        }
+        }*/
 
         List<AlarmEndpoint> subscribers = getSubscribers(zabbixNotification);
 
