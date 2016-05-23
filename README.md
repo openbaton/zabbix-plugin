@@ -31,11 +31,11 @@ The prerequisites are:
 
 ## Additional Zabbix Server configuration required for receiving notifications
 
-How is the zabbix-plugin receiving notification from the Zabbix Server? 
+How does zabbix-plugin receive notifications from the Zabbix Server? 
 
-When using the method createThreshold provided by the plugin,it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
+When using the method createThreshold provided by the plugin, it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
 If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the informations of the threshold and sends them to a custom alertScript.
-The custom alertscripts is executed on the zabbix server and its task is to send the informations received from the action to the zabbix-plugin. 
+The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the zabbix-plugin. 
 
 The zabbix-pluging waits for notifications at the url: http://zabbix-plugin-ip:defaultPort/defaultContext.
 
@@ -69,11 +69,24 @@ java -jar build/lib/zabbix-agent-<version>.jar
 ```
 
 ### Configuration
-Create a configuration file called zabbix-plugin.conf in the path /etc/openbaton/plugins/ and fill it with the configuration parameter explained in the following section.
+
+Create the path /etc/openbaton/plugins/monitoring with the command:
+
+```bash  
+mkdir -p /etc/openbaton/plugins/monitoring
+```
+
+Then copy the configuration file in src/main/resources/plugin.conf.properties to the path /etc/openbaton/plugins/monitoring/ with the name zabbix-plugin.conf. Once you are inside the zabbix-plugin directory type this command:
+
+```bash  
+cp src/main/resources/plugin.conf.properties /etc/openbaton/plugins/monitoring/zabbix-plugin.conf
+```
+
+The configuration parameters are explained in the following table.
 
 | Parameter           | Description     | Default
 | ------------------- | --------------  | ----------
-| zabbix-ip                             |  IP of the Zabbix Server      | not null
+| zabbix-host                           |  IP of the Zabbix Server      | not null
 | zabbix-port                           |  Port of the Zabbix Server    | can be empty
 | type                                  |  The type of the plugin       | zabbix-plugin
 | user-zbx                              |  User of the Zabbix Server    | 
@@ -87,18 +100,20 @@ Create a configuration file called zabbix-plugin.conf in the path /etc/openbaton
 The configuration file should look like the one below:
 
 ```bash  
-zabbix-ip = xxx.xxx.xxx.xxx
-zabbix-port = xxxxx
-type = zabbix-plugin
-user-zbx = zabbixUSer
-password-zbx = zabbixPassword
-client-request-frequency = 10
-history-length = 250
+zabbix-host=xxx.xxx.xxx.xxx
+zabbix-port=xxxxx
+type=zabbix-plugin
+user-zbx=<zabbix server user>
+password-zbx=<zabbix server password>
 
-notification-receiver-server-context = /zabbixplugin/notifications
-notification-receiver-server-port = 8010
+# Set client-request-frequency to 0 to disable the caching
+client-request-frequency=10
+history-length=250
 
-external-properties-file=/etc/openbaton/plugins/zabbix-plugin.conf
+notification-receiver-server-context=/zabbixplugin/notifications
+notification-receiver-server-port=8010
+
+external-properties-file=/etc/openbaton/plugins/monitoring/zabbix-plugin.conf
 ```
 
 
@@ -113,7 +128,7 @@ repositories {
 }
 
 dependencies {
-    compile 'org.openbaton:plugin-sdk:2.0.1-SNAPSHOT'
+    compile 'org.openbaton:plugin-sdk:2.0.2'
 }
 ```
 
@@ -122,7 +137,7 @@ Then in your main, obtain the MonitoringPluginCaller as follow:
 ```java
 MonitoringPluginCaller monitoringPluginCaller=null;
 try {
-    monitoringPluginCaller = new MonitoringPluginCaller("zabbix","15672");
+    monitoringPluginCaller = new MonitoringPluginCaller("zabbix","zabbix-plugin");
 } catch (TimeoutException e) {
     e.printStackTrace();
 } catch (NotFoundException e) {
