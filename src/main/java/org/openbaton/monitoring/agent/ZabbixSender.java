@@ -88,7 +88,14 @@ public class ZabbixSender implements RestSender{
             log.error("Post on the Zabbix server failed", e);
             throw new MonitoringException(e.getMessage(), e);
         }
-        JsonElement responseEl = mapper.fromJson(jsonResponse.getBody(), JsonObject.class);
+
+        JsonElement responseEl = null;
+        try {
+            responseEl = mapper.fromJson(jsonResponse.getBody(), JsonElement.class);
+        } catch (Exception e) {
+            log.error("Could not map the Zabbix server's response to JsonElement", e);
+            throw new MonitoringException("Could not map the Zabbix server's response to JsonElement", e);
+        }
         if (responseEl == null || !responseEl.isJsonObject())
             throw new MonitoringException("The json received from Zabbix Server is not a JsonObject or null");
         JsonObject responseObj= responseEl.getAsJsonObject();
