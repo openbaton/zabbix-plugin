@@ -13,9 +13,6 @@
 * limitations under the License.
 */
 
-group 'org.openbaton'
-version '1.0-SNAPSHOT'
-
 buildscript {
     repositories {
         mavenLocal()
@@ -24,6 +21,10 @@ buildscript {
     dependencies {
         classpath("org.springframework.boot:spring-boot-gradle-plugin:1.2.6.RELEASE")
     }
+}
+
+plugins {
+  id 'com.github.sherter.google-java-format' version '0.3.2'
 }
 
 repositories {
@@ -36,6 +37,9 @@ apply plugin: 'spring-boot'
 
 mainClassName = 'org.openbaton.monitoring.agent.Starter'
 
+group 'org.openbaton'
+version '1.0-SNAPSHOT'
+
 dependencies {
     compile 'org.openbaton:plugin-sdk:2.0.2'
     compile 'com.google.code.gson:gson:2.3.1'
@@ -46,3 +50,5 @@ dependencies {
 
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
+
+build.dependsOn verifyGoogleJavaFormat
