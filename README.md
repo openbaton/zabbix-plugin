@@ -128,7 +128,7 @@ repositories {
 }
 
 dependencies {
-    compile 'org.openbaton:plugin-sdk:2.0.2'
+    compile 'org.openbaton:plugin-sdk:2.1.0'
 }
 ```
 

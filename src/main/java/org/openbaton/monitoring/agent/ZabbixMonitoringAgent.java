@@ -28,10 +28,7 @@ import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.catalogue.util.IdGenerator;
 import org.openbaton.exceptions.MonitoringException;
-import org.openbaton.monitoring.agent.alarm.catalogue.DatacenterAlarm;
 import org.openbaton.monitoring.agent.alarm.catalogue.Metric;
-import org.openbaton.monitoring.agent.connectivitymanager.ConnectivityManagerClient;
-import org.openbaton.monitoring.agent.connectivitymanager.Host;
 import org.openbaton.monitoring.agent.performance.management.catalogue.PmJob;
 import org.openbaton.monitoring.agent.performance.management.catalogue.Threshold;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
@@ -73,7 +70,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
   private Map<String, String> triggerIdActionIdMap;
   private LimitedQueue<State> history;
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-  private ConnectivityManagerClient connectivityManagerClient;
 
   //Server properties
   private HttpServer server;
@@ -404,76 +400,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         sendFaultNotification(notification, subscribers);
       }
     }
-  }
-
-  private void handleDatacenterNotification(ZabbixNotification zabbixNotification)
-      throws UnirestException {
-    String datacenterName = zabbixNotification.getHostName();
-    Alarm alarm = createDatacenterAlarm(zabbixNotification);
-    if (datacenterAlarms.get(datacenterName) == null) {
-      List<Alarm> alarms = new ArrayList<>();
-      alarms.add(alarm);
-      datacenterAlarms.put(datacenterName, alarms);
-    } else {
-      List<Alarm> alarms = datacenterAlarms.get(datacenterName);
-      boolean found = false;
-      for (Alarm currentAlarm : alarms) {
-        //Check if the alarm is present update it
-        if (currentAlarm.getThresholdId().equals(zabbixNotification.getTriggerId())) {
-          currentAlarm.setAlarmState(
-              zabbixNotification.getTriggerStatus() == TriggerStatus.OK
-                  ? AlarmState.CLEARED
-                  : AlarmState.UPDATED);
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        alarms.add(alarm);
-        datacenterAlarms.put(datacenterName, alarms);
-      }
-    }
-  }
-
-  private Alarm createDatacenterAlarm(ZabbixNotification zabbixNotification) {
-    DatacenterAlarm datacenterAlarm = new DatacenterAlarm();
-    datacenterAlarm.setThresholdId(zabbixNotification.getTriggerId());
-
-    //AlarmRaisedTime: It indicates the date and time when the alarm is first raised by the managed object.
-    datacenterAlarm.setAlarmRaisedTime(
-        zabbixNotification.getEventDate() + " " + zabbixNotification.getEventTime());
-    //EventTime: Time when the fault was observed.
-    DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-    Date date = new Date();
-    datacenterAlarm.setEventTime(dateFormat.format(date));
-
-    //AlarmState: State of the alarm, e.g. âfiredâ, âupdatedâ, âclearedâ.
-    datacenterAlarm.setAlarmState(AlarmState.FIRED);
-    /*
-    Type of the fault.The allowed values for the faultyType attribute depend
-    on the type of the related managed object. For example, a resource of type âcomputeâ
-    may have faults of type âCPU failureâ, âmemory failureâ, ânetwork card failureâ, etc.
-    */
-    datacenterAlarm.setFaultType(getFaultType(zabbixNotification.getItemKey()));
-    /*
-    Identifier of the affected managed Object. The Managed Objects for this information element
-    will be virtualised resources. These resources shall be known by the Virtualised Resource Management interface.
-    */
-    //TODO handle a notification fired by a threshold on more than one hostname
-    datacenterAlarm.setDatacenterName(zabbixNotification.getHostName());
-
-    //Perceived severity of the managed object failure
-    datacenterAlarm.setPerceivedSeverity(
-        getPerceivedSeverity(zabbixNotification.getTriggerSeverity()));
-
-    return datacenterAlarm;
-  }
-
-  private boolean isDatacenterNotification(ZabbixNotification zabbixNotification)
-      throws UnirestException {
-    if (connectivityManagerClient == null) return false;
-    Host host = connectivityManagerClient.getHost();
-    return host.isDatacenter(zabbixNotification.getHostName());
   }
 
   private boolean isNewNotification(ZabbixNotification zabbixNotification) {
