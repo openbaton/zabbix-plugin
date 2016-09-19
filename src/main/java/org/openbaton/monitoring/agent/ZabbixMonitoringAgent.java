@@ -414,11 +414,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
       AbstractVirtualizedResourceAlarm notification, List<AlarmEndpoint> subscribers) {
 
     for (AlarmEndpoint ae : subscribers) {
-      try {
-        notifyFault(ae, notification);
-      } catch (MonitoringException e) {
-        log.error(e.getMessage(), e);
-      }
+      notifyFault(ae, notification);
     }
   }
 
@@ -560,8 +556,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
   }
 
   @Override
-  public void notifyFault(AlarmEndpoint endpoint, AbstractVirtualizedResourceAlarm event)
-      throws MonitoringException {
+  public void notifyFault(AlarmEndpoint endpoint, AbstractVirtualizedResourceAlarm event) {
     HttpResponse<String> response = null;
     try {
       if (event instanceof VirtualizedResourceAlarmNotification) {
@@ -590,10 +585,9 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
                 endpoint.getEndpoint(), jsonAlarm, HttpMethod.PUT, "application/json");
       }
       log.debug("Response is:" + response.getBody());
-    } catch (UnirestException e) {
-      throw new MonitoringException(e);
     } catch (Exception e) {
-      throw new MonitoringException(e);
+      if (log.isDebugEnabled()) log.error(e.getMessage(), e);
+      else log.error(e.getMessage());
     }
   }
 
