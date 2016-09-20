@@ -16,7 +16,6 @@
 buildscript {
     repositories {
         mavenLocal()
-        mavenCentral()
     }
     dependencies {
         classpath("org.springframework.boot:spring-boot-gradle-plugin:1.2.6.RELEASE")
@@ -28,7 +27,9 @@ plugins {
 }
 
 repositories {
+//  maven { url "http://get.openbaton.org:8081/nexus/content/groups/public/" }
     maven { url "http://get.openbaton.org:8081/nexus/content/groups/public/" }
+    mavenCentral()
 }
 
 apply plugin: 'java'
