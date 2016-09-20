@@ -28,7 +28,7 @@ plugins {
 
 repositories {
 //  maven { url "http://get.openbaton.org:8081/nexus/content/groups/public/" }
-    maven { url "http://get.openbaton.org:8081/nexus/content/groups/public/" }
+    maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
     mavenCentral()
 }
 
