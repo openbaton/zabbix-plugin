@@ -432,5 +432,5 @@ The Open Baton project provides community support through the Open Baton Public 
 [zabbix-doc-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/items/itemtypes/zabbix_agent
 [zabbix-trigger-function-2.2]:https://www.zabbix.com/documentation/2.2/manual/appendix/triggers/functions
 [zabbix-trigger-expression-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/triggers/expression
-[zabbix-server-configuration]:zabbix-server-configuration.md
+[zabbix-server-configuration]:http://openbaton.github.io/documentation/zabbix-server-configuration/
 
