@@ -162,8 +162,7 @@ public class ZabbixSender implements RestSender {
     //log.debug("AUTHENTICATION ERROR  ----->   "+error + " ---> Retrying");
 
     if (error.isJsonObject()) data = ((JsonObject) error).get("data");
-
-    if (data.getAsString().equals("Not authorized")) {
+    if (data.getAsString().equals("Not authorised")) {
       isAuthorized = true;
       return isAuthorized;
     }
