@@ -40,14 +40,14 @@ public class ZabbixApiManagerTest {
 
     private final List<String> hostnameList = Collections.singletonList("Zabbix server");
     private ZabbixApiManager zabbixApiManager;
-    private List<String> triggerIds, actionIds;
-
+    private List<String> triggerIds, actionIds, prototypeIds;
+    private Properties properties;
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
     @Before
-    public void init() throws IOException {
-        Properties properties = new Properties();
+    public void init() throws IOException, MonitoringException {
+        properties = new Properties();
         properties.load(this.getClass().getResourceAsStream("/plugin.conf.properties"));
         if (properties.getProperty("external-properties-file") != null) {
             File externalPropertiesFile = new File(properties.getProperty("external-properties-file"));
@@ -61,18 +61,32 @@ public class ZabbixApiManagerTest {
                                                      Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false")),
                                                      properties.getProperty("user-zbx"),
                                                      properties.getProperty("password-zbx"));
+        zabbixSender.authenticate("http://" + properties.getProperty("zabbix-host") + "/zabbix/api_jsonrpc.php",
+                                  properties.getProperty("user-zbx"),
+                                  properties.getProperty("password-zbx")); /* to force double authentication */
         zabbixApiManager= new ZabbixApiManager(zabbixSender);
         triggerIds = new ArrayList<>();
         actionIds = new ArrayList<>();
+        prototypeIds = new ArrayList<>();
+    }
+
+    @Test
+    public void edgeCasesForInitTest() throws MonitoringException {
+        thrown.expect(MonitoringException.class);
+        thrown.expectMessage("Invalid params. Login name or password is incorrect.");
+
+        ZabbixSender zabbixSender = new ZabbixSender(properties.getProperty("zabbix-host"),
+                                                     "80" /* explicit port-string */,
+                                                     false,
+                                                     properties.getProperty("user-zbx"),
+                                                     properties.getProperty("Wrong Password"));
+        zabbixSender.authenticate();
     }
 
     @Test
     public void createActionAndTriggerTest() throws MonitoringException {
         for (String host: hostnameList) {
             String hostId = zabbixApiManager.getHostId(host);
-            String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
-            String ruleId = zabbixApiManager.getRuleId(hostId);
-            // String prototypTriggerId = zabbixApiManager.getPrototypeTriggerId(ruleId);
             String triggerId = zabbixApiManager.createTrigger("Test trigger for " + host,
                                                               "{" + host +":system.cpu.load[percpu,avg1].last(0)}>0.45",
                                                               3);
@@ -83,7 +97,7 @@ public class ZabbixApiManagerTest {
     }
 
     @Test
-    public void HostNoHostFoundTest() throws MonitoringException {
+    public void hostNoHostFoundTest() throws MonitoringException {
         thrown.expect(MonitoringException.class);
         thrown.expectMessage("No host found with name: ");
 
@@ -91,7 +105,7 @@ public class ZabbixApiManagerTest {
     }
 
     @Test
-    public void ActionAlreadyExistsTest() throws MonitoringException {
+    public void actionAlreadyExistsTest() throws MonitoringException {
         thrown.expect(MonitoringException.class);
         thrown.expectMessage("Action \"Test action\" already exists");
 
@@ -101,13 +115,24 @@ public class ZabbixApiManagerTest {
     }
 
     @Test
-    public void TriggerIncorrectExpressionTest() throws MonitoringException {
+    public void triggerIncorrectExpressionTest() throws MonitoringException {
         thrown.expect(MonitoringException.class);
         thrown.expectMessage("Invalid params. Incorrect trigger expression. " +
                              "Check expression part starting from \"{}\".");
 
         String triggerId = zabbixApiManager.createTrigger("Test trigger", "{}", 3);
         triggerIds.add(triggerId);
+    }
+
+    @Test
+    public void prototypeTest() throws MonitoringException {
+        String hostId = zabbixApiManager.getHostId(hostnameList.get(0));
+        String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+        String ruleId = zabbixApiManager.getRuleId(hostId);
+        String prototypeId = zabbixApiManager.createPrototypeItem(5, hostId, interfaceId,
+                                                                  "tcp.listen.port[5010]",
+                                                                  "ping prototyp",0,0 , ruleId);
+        prototypeIds.add(prototypeId);
     }
 
     @After
@@ -117,6 +142,9 @@ public class ZabbixApiManagerTest {
         }
         if (!triggerIds.isEmpty()) {
             zabbixApiManager.deleteTriggers(triggerIds);
+        }
+        if (!prototypeIds.isEmpty()) {
+            zabbixApiManager.deletePrototypeItems(prototypeIds);
         }
     }
 }
