@@ -18,9 +18,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.openbaton.catalogue.mano.common.monitoring.Alarm;
+import org.openbaton.catalogue.mano.common.monitoring.AlarmEndpoint;
 import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
 import org.openbaton.catalogue.mano.common.monitoring.PerceivedSeverity;
 import org.openbaton.catalogue.mano.common.monitoring.ThresholdDetails;
+import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
@@ -41,7 +44,7 @@ public class VirtualizedResourcePerformanceManagementTest {
     private ZabbixMonitoringAgent zabbixMonitoringAgent;
 
     @Before
-    public void init() throws RemoteException, InterruptedException {
+    public void init() throws RemoteException, InterruptedException, MonitoringException {
         zabbixMonitoringAgent = new ZabbixMonitoringAgent();
         Thread.sleep(3000);
     }
@@ -49,7 +52,7 @@ public class VirtualizedResourcePerformanceManagementTest {
     @Test
     public void createAndDeletePMJobTest() throws MonitoringException {
         ObjectSelection objectSelection = getObjectSelector(hostnameList);
-        List<String> performanceMetrics=getPerformanceMetrics("net.tcp.listen[8080]");
+        List<String> performanceMetrics=getPerformanceMetrics("net.tcp.listen[8081]", "net.tcp.listen[8080]");
         String pmJobId = zabbixMonitoringAgent.createPMJob(objectSelection, performanceMetrics,
                                                            new ArrayList<String>(),10, 0);
         Assert.notNull(pmJobId);
@@ -90,7 +93,17 @@ public class VirtualizedResourcePerformanceManagementTest {
 
     @Test
     @Ignore
-    public void checkRequestTest() {
+    public void checkRequestTest() {}
+
+    @Test
+    public void alarmGetCheckAndDeleteTest() throws MonitoringException {
+        List<Alarm> alarmList = zabbixMonitoringAgent.getAlarmList("something", PerceivedSeverity.CRITICAL);
+        AlarmEndpoint alarmEndpoint = new AlarmEndpoint("testalarm",
+                                                        null, EndpointType.REST,
+                                                        "http://localhost:9001/alarm/vr",
+                                                        PerceivedSeverity.MINOR);
+        String subscribtionId = zabbixMonitoringAgent.subscribeForFault(alarmEndpoint);
+        zabbixMonitoringAgent.unsubscribeForFault(subscribtionId);
     }
 
     private ObjectSelection getObjectSelector(String ... args){
