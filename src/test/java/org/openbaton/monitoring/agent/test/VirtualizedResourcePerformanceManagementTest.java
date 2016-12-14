@@ -14,16 +14,14 @@
 */
 package org.openbaton.monitoring.agent.test;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.openbaton.catalogue.mano.common.monitoring.Alarm;
-import org.openbaton.catalogue.mano.common.monitoring.AlarmEndpoint;
 import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
 import org.openbaton.catalogue.mano.common.monitoring.PerceivedSeverity;
 import org.openbaton.catalogue.mano.common.monitoring.ThresholdDetails;
-import org.openbaton.catalogue.nfvo.EndpointType;
+import org.openbaton.catalogue.mano.common.monitoring.ThresholdType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
@@ -31,7 +29,6 @@ import org.springframework.util.Assert;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,10 +38,10 @@ import java.util.List;
 public class VirtualizedResourcePerformanceManagementTest {
 
     private final String[] hostnameList = {"Zabbix server"};
-    private ZabbixMonitoringAgent zabbixMonitoringAgent;
+    private static ZabbixMonitoringAgent zabbixMonitoringAgent;
 
-    @Before
-    public void init() throws RemoteException, InterruptedException, MonitoringException {
+    @BeforeClass
+    public static void init() throws RemoteException, InterruptedException, MonitoringException {
         zabbixMonitoringAgent = new ZabbixMonitoringAgent();
         Thread.sleep(3000);
     }
@@ -74,7 +71,10 @@ public class VirtualizedResourcePerformanceManagementTest {
 
         String thresholdId = zabbixMonitoringAgent.createThreshold(objectSelector,
                                                                    "proc.num[]",
-                                                                   null,thresholdDetails);
+                                                                   ThresholdType.SINGLE_VALUE,
+                                                                   thresholdDetails);
+
+        zabbixMonitoringAgent.queryThreshold(null);
 
         List<String> thresholdIdsToDelete=new ArrayList<>();
         thresholdIdsToDelete.add(thresholdId);
@@ -84,27 +84,18 @@ public class VirtualizedResourcePerformanceManagementTest {
     }
 
     @Test
-    public void getMetricsTest() throws MonitoringException {
+    public void getMetricsTest() throws MonitoringException, InterruptedException {
         ObjectSelection objectSelector = getObjectSelector(hostnameList);
-        List<String> itemList = new ArrayList<String>(Arrays.asList("agent.ping", "proc.num[]"));
+        List<String> itemList = getPerformanceMetrics("agent.ping", "proc.num[]");
+        Thread.sleep(5000);
         List<Item> metrics = zabbixMonitoringAgent.queryPMJob(objectSelector.getObjectInstanceIds(),
-                                                              itemList, "0");
+                                                              itemList, "5");
     }
 
     @Test
     @Ignore
     public void checkRequestTest() {}
 
-    @Test
-    public void alarmGetCheckAndDeleteTest() throws MonitoringException {
-        List<Alarm> alarmList = zabbixMonitoringAgent.getAlarmList("something", PerceivedSeverity.CRITICAL);
-        AlarmEndpoint alarmEndpoint = new AlarmEndpoint("testalarm",
-                                                        null, EndpointType.REST,
-                                                        "http://localhost:9001/alarm/vr",
-                                                        PerceivedSeverity.MINOR);
-        String subscribtionId = zabbixMonitoringAgent.subscribeForFault(alarmEndpoint);
-        zabbixMonitoringAgent.unsubscribeForFault(subscribtionId);
-    }
 
     private ObjectSelection getObjectSelector(String ... args){
         ObjectSelection objectSelection =new ObjectSelection();
@@ -120,8 +111,8 @@ public class VirtualizedResourcePerformanceManagementTest {
         return performanceMetrics;
     }
 
-    @After
-    public void stopZabbixMonitoringAgent(){
+    @AfterClass
+    public static void destroy(){
         zabbixMonitoringAgent.terminate();
     }
 }

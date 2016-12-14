@@ -1,0 +1,65 @@
+/*
+* Copyright (c) 2015-2016 Fraunhofer FOKUS
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+package org.openbaton.monitoring.agent.test;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.openbaton.catalogue.mano.common.monitoring.AlarmEndpoint;
+import org.openbaton.catalogue.mano.common.monitoring.PerceivedSeverity;
+import org.openbaton.catalogue.nfvo.EndpointType;
+import org.openbaton.exceptions.MonitoringException;
+import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
+
+import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Created by pku on 14.12.16.
+ */
+public class VirtualisedResourceFaultManagementTest {
+
+  private final String[] hostnameList = {"Zabbix server"};
+  private static ZabbixMonitoringAgent zabbixMonitoringAgent;
+  private static List<String> subscriptionIds;
+
+  @BeforeClass
+  public static void init() throws InterruptedException, MonitoringException, RemoteException {
+    zabbixMonitoringAgent = new ZabbixMonitoringAgent();
+    subscriptionIds = new ArrayList<String>();
+    Thread.sleep(3000);
+  }
+
+  @Test
+  public void subscribeAndUnsubscribe() throws MonitoringException, InterruptedException {
+    AlarmEndpoint alarmEndpoint;
+    for (String host : hostnameList) {
+      alarmEndpoint = new AlarmEndpoint("fm-of-host-" + host, host, EndpointType.REST,
+                                                      "http://localhost:5555/alarm", PerceivedSeverity.WARNING);
+      String subscriptionId = zabbixMonitoringAgent.subscribeForFault(alarmEndpoint);
+      subscriptionIds.add(subscriptionId);
+    }
+  }
+
+
+  @AfterClass
+  public static void destroy() {
+    for (String id : subscriptionIds) {
+      zabbixMonitoringAgent.unsubscribeForFault(id);
+    }
+    zabbixMonitoringAgent.terminate();
+  }
+}
