@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * Created by pku on 14.12.16.
  */
-public class VirtualisedResourceFaultManagementTest {
+public class VirtualizedResourceFaultManagementTest {
 
   private final String[] hostnameList = {"Zabbix server"};
   private static ZabbixMonitoringAgent zabbixMonitoringAgent;
