@@ -15,8 +15,8 @@
 
 package org.openbaton.monitoring.agent.test;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -39,16 +39,16 @@ import java.util.Properties;
 public class ZabbixApiManagerTest {
 
     private final List<String> hostnameList = Collections.singletonList("Zabbix server");
-    private ZabbixApiManager zabbixApiManager;
-    private List<String> triggerIds, actionIds, prototypeIds;
-    private Properties properties;
+    private static ZabbixApiManager zabbixApiManager;
+    private static List<String> triggerIds, actionIds, prototypeIds;
+    private static Properties properties;
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
-    @Before
-    public void init() throws IOException, MonitoringException {
+    @BeforeClass
+    public static void init() throws IOException, MonitoringException {
         properties = new Properties();
-        properties.load(this.getClass().getResourceAsStream("/plugin.conf.properties"));
+        properties.load(ZabbixApiManagerTest.class.getResourceAsStream("/plugin.conf.properties"));
         if (properties.getProperty("external-properties-file") != null) {
             File externalPropertiesFile = new File(properties.getProperty("external-properties-file"));
             if (externalPropertiesFile.exists()) {
@@ -135,8 +135,8 @@ public class ZabbixApiManagerTest {
         prototypeIds.add(prototypeId);
     }
 
-    @After
-    public void destroy() throws MonitoringException {
+    @AfterClass
+    public static void destroy() throws MonitoringException {
         if (!actionIds.isEmpty()) {
             zabbixApiManager.deleteActions(actionIds);
         }
