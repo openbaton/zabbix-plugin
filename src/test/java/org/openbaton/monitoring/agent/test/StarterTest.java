@@ -8,9 +8,7 @@ import org.openbaton.monitoring.agent.Starter;
 
 import java.io.IOException;
 
-/**
- * Created by pku on 09.12.16.
- */
+/** Created by pku on 09.12.16. */
 public class StarterTest {
   private Starter starter;
 
@@ -22,16 +20,15 @@ public class StarterTest {
   @Test
   @Ignore
   public void startAndStopStarterTest() {
-    starter.main(new String[]{""});
-    starter.main(new String[]{"zabbix", "localhost","5672","1"});
+    Starter.main(new String[] {""});
+    Starter.main(new String[] {"zabbix", "localhost", "5672", "1"});
   }
 
-  @Test(expected=ArrayIndexOutOfBoundsException.class)
+  @Test(expected = ArrayIndexOutOfBoundsException.class)
   public void wrongParameterCountStarterTest() {
-    starter.main(new String[]{"garbage here", "and here"});
+    Starter.main(new String[] {"garbage here", "and here"});
   }
 
   @After
-  public void destroy() throws InterruptedException {
-  }
+  public void destroy() throws InterruptedException {}
 }
