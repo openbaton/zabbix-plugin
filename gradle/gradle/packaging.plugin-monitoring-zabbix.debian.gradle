@@ -35,7 +35,7 @@ task makedeb(type: Deb, dependsOn: [jar, build]) {
     vendor = 'Open Source (Implemented by Fraunhofer FOKUS and TUB)'
     license = 'Apache 2.0 License'
     url = 'http://openbaton.github.io/index.html'
-    summary = 'OpenStack Zabbix Plugin for the Open Baton Project'
+    summary = 'Zabbix Plugin for the Open Baton Project'
     packageDescription = 'The Zabbix Plugin is a component of the Open Baton projetc, which is an ETSI compliant implementation of a NFV Management and Orchestration (MANO). It allows, using the Open Baton system, to retrieve monitoring inforation from a Zabbix Server'
 
     postInstall file('gradle/gradle/scripts/debian/postinst')
