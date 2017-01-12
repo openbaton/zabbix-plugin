@@ -25,148 +25,139 @@ import java.util.List;
  * Created by mob on 17.11.15.
  */
 public class ZabbixAction {
-    @SerializedName("name")
-    @Expose
-    private String name;
-    @SerializedName("eventsource")
-    @Expose
-    private Integer eventsource;
-    @SerializedName("esc_period")
-    @Expose
-    private Integer escPeriod;
-    @SerializedName("def_longdata")
-    @Expose
-    private String defLongdata;
-    @SerializedName("filter")
-    @Expose
-    private Filter filter = new Filter();
-    @SerializedName("operations")
-    @Expose
-    private List<Operation> operations = new ArrayList<Operation>();
+  @SerializedName("name")
+  @Expose
+  private String name;
 
-    /**
-     *
-     * @return
-     * The name
-     */
-    public String getName() {
-        return name;
-    }
+  @SerializedName("eventsource")
+  @Expose
+  private Integer eventsource;
 
-    /**
-     *
-     * @param name
-     * The name
-     */
-    public void setName(String name) {
-        this.name = name;
-    }
+  @SerializedName("esc_period")
+  @Expose
+  private Integer escPeriod;
 
-    /**
-     *
-     * @return
-     * The eventsource
-     */
-    public Integer getEventsource() {
-        return eventsource;
-    }
+  @SerializedName("def_longdata")
+  @Expose
+  private String defLongdata;
 
-    /**
-     *
-     * @param eventsource
-     * The eventsource
-     */
-    public void setEventsource(Integer eventsource) {
-        this.eventsource = eventsource;
-    }
+  @SerializedName("filter")
+  @Expose
+  private Filter filter = new Filter();
 
-    /**
-     *
-     * @return
-     * The evaltype
-     */
-    public Integer getEvaltype() {
-        return filter.getEvaltype();
-    }
+  @SerializedName("operations")
+  @Expose
+  private List<Operation> operations = new ArrayList<Operation>();
 
-    /**
-     *
-     * @param evaltype
-     * The evaltype
-     */
-    public void setEvaltype(Integer evaltype) {
-        this.filter.setEvaltype(evaltype);
-    }
+  /**
+   *
+   * @return The name
+   */
+  public String getName() {
+    return name;
+  }
 
-    /**
-     *
-     * @return
-     * The escPeriod
-     */
-    public Integer getEscPeriod() {
-        return escPeriod;
-    }
+  /**
+   *
+   * @param name The name
+   */
+  public void setName(String name) {
+    this.name = name;
+  }
 
-    /**
-     *
-     * @param escPeriod
-     * The esc_period
-     */
-    public void setEscPeriod(Integer escPeriod) {
-        this.escPeriod = escPeriod;
-    }
+  /**
+   *
+   * @return The eventsource
+   */
+  public Integer getEventsource() {
+    return eventsource;
+  }
 
-    /**
-     *
-     * @return
-     * The defLongdata
-     */
-    public String getDefLongdata() {
-        return defLongdata;
-    }
+  /**
+   *
+   * @param eventsource The eventsource
+   */
+  public void setEventsource(Integer eventsource) {
+    this.eventsource = eventsource;
+  }
 
-    /**
-     *
-     * @param defLongdata
-     * The def_longdata
-     */
-    public void setDefLongdata(String defLongdata) {
-        this.defLongdata = defLongdata;
-    }
+  /**
+   *
+   * @return The evaltype
+   */
+  public Integer getEvaltype() {
+    return filter.getEvaltype();
+  }
 
-    /**
-     *
-     * @return
-     * The conditions
-     */
-    public List<Condition> getConditions() {
-        return filter.getConditions();
-    }
+  /**
+   *
+   * @param evaltype The evaltype
+   */
+  public void setEvaltype(Integer evaltype) {
+    this.filter.setEvaltype(evaltype);
+  }
 
-    /**
-     *
-     * @param conditions
-     * The conditions
-     */
-    public void setConditions(List<Condition> conditions) {
-        this.filter.setConditions(conditions);
-    }
+  /**
+   *
+   * @return The escPeriod
+   */
+  public Integer getEscPeriod() {
+    return escPeriod;
+  }
 
-    /**
-     *
-     * @return
-     * The operations
-     */
-    public List<Operation> getOperations() {
-        return operations;
-    }
+  /**
+   *
+   * @param escPeriod The esc_period
+   */
+  public void setEscPeriod(Integer escPeriod) {
+    this.escPeriod = escPeriod;
+  }
 
-    /**
-     *
-     * @param operations
-     * The operations
-     */
-    public void setOperations(List<Operation> operations) {
-        this.operations = operations;
-    }
+  /**
+   *
+   * @return The defLongdata
+   */
+  public String getDefLongdata() {
+    return defLongdata;
+  }
+
+  /**
+   *
+   * @param defLongdata The def_longdata
+   */
+  public void setDefLongdata(String defLongdata) {
+    this.defLongdata = defLongdata;
+  }
+
+  /**
+   *
+   * @return The conditions
+   */
+  public List<Condition> getConditions() {
+    return filter.getConditions();
+  }
+
+  /**
+   *
+   * @param conditions The conditions
+   */
+  public void setConditions(List<Condition> conditions) {
+    this.filter.setConditions(conditions);
+  }
+
+  /**
+   *
+   * @return The operations
+   */
+  public List<Operation> getOperations() {
+    return operations;
+  }
+
+  /**
+   *
+   * @param operations The operations
+   */
+  public void setOperations(List<Operation> operations) {
+    this.operations = operations;
+  }
 }

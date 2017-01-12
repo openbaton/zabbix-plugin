@@ -73,7 +73,8 @@ public class VirtualizedResourceFaultManagementTest {
               objectSelection, "proc.num[]", ThresholdType.SINGLE_VALUE, thresholdDetails);
       thresholdIds.add(thresholdId);
 
-      AbstractVirtualizedResourceAlarm alarm = new VirtualizedResourceAlarmNotification(thresholdId, new VRAlarm());
+      AbstractVirtualizedResourceAlarm alarm =
+          new VirtualizedResourceAlarmNotification(thresholdId, new VRAlarm());
       zabbixMonitoringAgent.notifyFault(alarmEndpoint, alarm);
       Thread.sleep(10000);
     }
