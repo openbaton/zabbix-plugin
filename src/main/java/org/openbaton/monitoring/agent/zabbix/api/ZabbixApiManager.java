@@ -179,18 +179,18 @@ public class ZabbixApiManager {
 
     String defLongData =
         "{"
-            + "\"triggerId\":\"{TRIGGER.ID}\","
-            + "\"triggerName\":\"{TRIGGER.NAME}\","
-            + "\"triggerStatus\": \"{TRIGGER.STATUS}\","
-            + "\"triggerSeverity\":\"{TRIGGER.SEVERITY}\","
-            + "\"triggerUrl\":\"{TRIGGER.URL}\","
-            + "\"itemName\":\"{ITEM.NAME}\","
-            + "\"hostName\":\"{HOST.NAME}\","
-            + "\"itemKey\":\"{ITEM.KEY}\","
-            + "\"itemValue\":\"{ITEM.VALUE}\","
-            + "\"eventId\":\"{EVENT.ID}\","
-            + "\"eventDate\":\"{EVENT.DATE}\","
-            + "\"eventTime\":\"{EVENT.TIME}\""
+            + "triggerId: {TRIGGER.ID}, "
+            + "triggerName: {TRIGGER.NAME}, "
+            + "triggerStatus: {TRIGGER.STATUS}, "
+            + "triggerSeverity: {TRIGGER.SEVERITY}, "
+            + "triggerUrl: {TRIGGER.URL}, "
+            + "itemName: {ITEM.NAME}, "
+            + "hostName: {HOST.NAME}, "
+            + "itemKey: {ITEM.KEY}, "
+            + "itemValue: {ITEM.VALUE}, "
+            + "eventId: {EVENT.ID}, "
+            + "eventDate: {EVENT.DATE}, "
+            + "eventTime: {EVENT.TIME}"
             + "}";
     zabbixAction.setDefLongdata(defLongData);
 
@@ -314,7 +314,7 @@ public class ZabbixApiManager {
         JsonObject interfaceInfoObj = resultAr.get(i).getAsJsonObject();
         if (interfaceInfoObj.get("type").getAsString().equals("1")
             && interfaceInfoObj.get("port").getAsString().equals("10050")
-        /*&& interfaceInfoObj.get("ip").getAsString().startsWith("192")*/ )
+            && interfaceInfoObj.get("ip").getAsString().startsWith("192"))
           interfaceId = interfaceInfoObj.get("interfaceid").getAsString();
       }
     }

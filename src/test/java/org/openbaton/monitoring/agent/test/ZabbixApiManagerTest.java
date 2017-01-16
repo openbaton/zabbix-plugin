@@ -15,19 +15,21 @@
 
 package org.openbaton.monitoring.agent.test;
 
-import org.junit.Before;
-import org.junit.Ignore;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixSender;
 import org.openbaton.monitoring.agent.zabbix.api.ZabbixApiManager;
-import org.springframework.util.Assert;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -36,12 +38,16 @@ import java.util.Properties;
  */
 public class ZabbixApiManagerTest {
 
-  private ZabbixApiManager zabbixApiManager;
+  private final List<String> hostnameList = Collections.singletonList("Zabbix server");
+  private static ZabbixApiManager zabbixApiManager;
+  private static List<String> triggerIds, actionIds, prototypeIds;
+  private static Properties properties;
+  @Rule public ExpectedException thrown = ExpectedException.none();
 
-  @Before
-  public void init() throws IOException {
-    Properties properties = new Properties();
-    properties.load(this.getClass().getResourceAsStream("/plugin.conf.properties"));
+  @BeforeClass
+  public static void init() throws IOException, MonitoringException {
+    properties = new Properties();
+    properties.load(ZabbixApiManagerTest.class.getResourceAsStream("/plugin.conf.properties"));
     if (properties.getProperty("external-properties-file") != null) {
       File externalPropertiesFile = new File(properties.getProperty("external-properties-file"));
       if (externalPropertiesFile.exists()) {
@@ -54,31 +60,98 @@ public class ZabbixApiManagerTest {
             properties.getProperty("zabbix-host"),
             properties.getProperty("zabbix-port"),
             Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false")),
-            properties.getProperty("user"),
-            properties.getProperty("password"));
+            properties.getProperty("user-zbx"),
+            properties.getProperty("password-zbx"));
+    zabbixSender.authenticate(
+        "http://" + properties.getProperty("zabbix-host") + "/zabbix/api_jsonrpc.php",
+        properties.getProperty("user-zbx"),
+        properties.getProperty("password-zbx")); /* to force double authentication */
     zabbixApiManager = new ZabbixApiManager(zabbixSender);
+    triggerIds = new ArrayList<>();
+    actionIds = new ArrayList<>();
+    prototypeIds = new ArrayList<>();
   }
 
   @Test
-  @Ignore
-  public void createAndDeleteActionAndTriggerTest() throws MonitoringException {
+  public void edgeCasesForInitTest() throws MonitoringException {
+    thrown.expect(MonitoringException.class);
+    thrown.expectMessage("Invalid params. Login name or password is incorrect.");
 
-    String triggerId =
-        zabbixApiManager.createTrigger(
-            "Test trigger",
-            "{iperf-server-536:system.cpu.load[percpu,avg1].last(0)}>0.45",
-            3 /*average*/);
+    ZabbixSender zabbixSender =
+        new ZabbixSender(
+            properties.getProperty("zabbix-host"),
+            "80" /* explicit port-string */,
+            false,
+            properties.getProperty("user-zbx"),
+            properties.getProperty("Wrong Password"));
+    zabbixSender.authenticate();
+  }
 
-    String actionId = zabbixApiManager.createAction("Test action", triggerId);
+  @Test
+  public void createActionAndTriggerTest() throws MonitoringException {
+    for (String host : hostnameList) {
+      String hostId = zabbixApiManager.getHostId(host);
+      String triggerId =
+          zabbixApiManager.createTrigger(
+              "Test trigger for " + host,
+              "{" + host + ":system.cpu.load[percpu,avg1].last(0)}>0.45",
+              3);
+      triggerIds.add(triggerId);
+      String actionId = zabbixApiManager.createAction("Test action for " + host, triggerId);
+      actionIds.add(actionId);
+    }
+  }
 
-    List<String> idsToDelete = new ArrayList<>();
-    idsToDelete.add(actionId);
-    List<String> actionIdDeleted = zabbixApiManager.deleteActions(idsToDelete);
-    Assert.isTrue(idsToDelete.get(0).equals(actionIdDeleted.get(0)));
+  @Test
+  public void hostNoHostFoundTest() throws MonitoringException {
+    thrown.expect(MonitoringException.class);
+    thrown.expectMessage("No host found with name: ");
 
-    idsToDelete.clear();
-    idsToDelete.add(triggerId);
-    List<String> triggerIdDeleted = zabbixApiManager.deleteTriggers(idsToDelete);
-    Assert.isTrue(idsToDelete.get(0).equals(triggerIdDeleted.get(0)));
+    String hostId = zabbixApiManager.getHostId("non-existend");
+  }
+
+  @Test
+  public void actionAlreadyExistsTest() throws MonitoringException {
+    thrown.expect(MonitoringException.class);
+    thrown.expectMessage("Action \"Test action\" already exists");
+
+    String actionId = zabbixApiManager.createAction("Test action", "non-exitend");
+    actionIds.add(actionId);
+    actionId = zabbixApiManager.createAction("Test action", "non-exitend");
+  }
+
+  @Test
+  public void triggerIncorrectExpressionTest() throws MonitoringException {
+    thrown.expect(MonitoringException.class);
+    thrown.expectMessage(
+        "Invalid params. Incorrect trigger expression. "
+            + "Check expression part starting from \"{}\".");
+
+    String triggerId = zabbixApiManager.createTrigger("Test trigger", "{}", 3);
+    triggerIds.add(triggerId);
+  }
+
+  @Test
+  public void prototypeTest() throws MonitoringException {
+    String hostId = zabbixApiManager.getHostId(hostnameList.get(0));
+    String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+    String ruleId = zabbixApiManager.getRuleId(hostId);
+    String prototypeId =
+        zabbixApiManager.createPrototypeItem(
+            5, hostId, interfaceId, "tcp.listen.port[5010]", "ping prototyp", 0, 0, ruleId);
+    prototypeIds.add(prototypeId);
+  }
+
+  @AfterClass
+  public static void destroy() throws MonitoringException {
+    if (!actionIds.isEmpty()) {
+      zabbixApiManager.deleteActions(actionIds);
+    }
+    if (!triggerIds.isEmpty()) {
+      zabbixApiManager.deleteTriggers(triggerIds);
+    }
+    if (!prototypeIds.isEmpty()) {
+      zabbixApiManager.deletePrototypeItems(prototypeIds);
+    }
   }
 }

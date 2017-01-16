@@ -14,13 +14,15 @@
  */
 package org.openbaton.monitoring.agent.test;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
 import org.openbaton.catalogue.mano.common.monitoring.PerceivedSeverity;
 import org.openbaton.catalogue.mano.common.monitoring.ThresholdDetails;
+import org.openbaton.catalogue.mano.common.monitoring.ThresholdType;
+import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
 import org.springframework.util.Assert;
@@ -35,22 +37,23 @@ import java.util.List;
  */
 public class VirtualizedResourcePerformanceManagementTest {
 
-  private ZabbixMonitoringAgent zabbixMonitoringAgent;
+  private final String[] hostnameList = {"Zabbix server"};
+  private static ZabbixMonitoringAgent zabbixMonitoringAgent;
 
-  @Before
-  public void init() throws RemoteException, InterruptedException {
+  @BeforeClass
+  public static void init() throws RemoteException, InterruptedException, MonitoringException {
     zabbixMonitoringAgent = new ZabbixMonitoringAgent();
     Thread.sleep(3000);
   }
 
   @Test
-  @Ignore
-  public void creteAndDeletePMJobTest() throws MonitoringException {
-    ObjectSelection objectSelection = getObjectSelector("host-1", "host-2");
-    List<String> performanceMetrics = getPerformanceMetrics("net.tcp.listen[8080]", "agent.ping");
+  public void createAndDeletePMJobTest() throws MonitoringException {
+    ObjectSelection objectSelection = getObjectSelector(hostnameList);
+    List<String> performanceMetrics =
+        getPerformanceMetrics("net.tcp.listen[8081]", "net.tcp.listen[8080]");
     String pmJobId =
         zabbixMonitoringAgent.createPMJob(
-            objectSelection, performanceMetrics, new ArrayList<String>(), 60, 0);
+            objectSelection, performanceMetrics, new ArrayList<String>(), 10, 0);
     Assert.notNull(pmJobId);
     Assert.isTrue(!pmJobId.isEmpty());
 
@@ -62,16 +65,17 @@ public class VirtualizedResourcePerformanceManagementTest {
   }
 
   @Test
-  @Ignore
   public void createAndDeleteThresholdTest() throws MonitoringException {
-    ObjectSelection objectSelector = getObjectSelector();
+    ObjectSelection objectSelector = getObjectSelector(hostnameList);
     ThresholdDetails thresholdDetails =
         new ThresholdDetails("last(0)", "=", PerceivedSeverity.CRITICAL, "0", "|");
     thresholdDetails.setPerceivedSeverity(PerceivedSeverity.CRITICAL);
 
     String thresholdId =
         zabbixMonitoringAgent.createThreshold(
-            objectSelector, "net.tcp.listen[5001]", null, thresholdDetails);
+            objectSelector, "proc.num[]", ThresholdType.SINGLE_VALUE, thresholdDetails);
+
+    zabbixMonitoringAgent.queryThreshold(null);
 
     List<String> thresholdIdsToDelete = new ArrayList<>();
     thresholdIdsToDelete.add(thresholdId);
@@ -79,6 +83,19 @@ public class VirtualizedResourcePerformanceManagementTest {
     List<String> thresholdIdsDeleted = zabbixMonitoringAgent.deleteThreshold(thresholdIdsToDelete);
     Assert.isTrue(thresholdId.equals(thresholdIdsDeleted.get(0)));
   }
+
+  @Test
+  public void getMetricsTest() throws MonitoringException, InterruptedException {
+    ObjectSelection objectSelector = getObjectSelector(hostnameList);
+    List<String> itemList = getPerformanceMetrics("agent.ping", "proc.num[]");
+    Thread.sleep(5000);
+    List<Item> metrics =
+        zabbixMonitoringAgent.queryPMJob(objectSelector.getObjectInstanceIds(), itemList, "5");
+  }
+
+  @Test
+  @Ignore
+  public void checkRequestTest() {}
 
   private ObjectSelection getObjectSelector(String... args) {
     ObjectSelection objectSelection = new ObjectSelection();
@@ -94,8 +111,8 @@ public class VirtualizedResourcePerformanceManagementTest {
     return performanceMetrics;
   }
 
-  @After
-  public void stopZabbixMonitoringAgent() {
+  @AfterClass
+  public static void destroy() {
     zabbixMonitoringAgent.terminate();
   }
 }

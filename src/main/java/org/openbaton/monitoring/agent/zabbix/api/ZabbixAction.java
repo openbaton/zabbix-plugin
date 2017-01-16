@@ -33,10 +33,6 @@ public class ZabbixAction {
   @Expose
   private Integer eventsource;
 
-  @SerializedName("evaltype")
-  @Expose
-  private Integer evaltype;
-
   @SerializedName("esc_period")
   @Expose
   private Integer escPeriod;
@@ -45,9 +41,9 @@ public class ZabbixAction {
   @Expose
   private String defLongdata;
 
-  @SerializedName("conditions")
+  @SerializedName("filter")
   @Expose
-  private List<Condition> conditions = new ArrayList<Condition>();
+  private Filter filter = new Filter();
 
   @SerializedName("operations")
   @Expose
@@ -90,7 +86,7 @@ public class ZabbixAction {
    * @return The evaltype
    */
   public Integer getEvaltype() {
-    return evaltype;
+    return filter.getEvaltype();
   }
 
   /**
@@ -98,7 +94,7 @@ public class ZabbixAction {
    * @param evaltype The evaltype
    */
   public void setEvaltype(Integer evaltype) {
-    this.evaltype = evaltype;
+    this.filter.setEvaltype(evaltype);
   }
 
   /**
@@ -138,7 +134,7 @@ public class ZabbixAction {
    * @return The conditions
    */
   public List<Condition> getConditions() {
-    return conditions;
+    return filter.getConditions();
   }
 
   /**
@@ -146,7 +142,7 @@ public class ZabbixAction {
    * @param conditions The conditions
    */
   public void setConditions(List<Condition> conditions) {
-    this.conditions = conditions;
+    this.filter.setConditions(conditions);
   }
 
   /**

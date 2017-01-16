@@ -115,7 +115,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         }
       };
 
-  public ZabbixMonitoringAgent() throws RemoteException {
+  public ZabbixMonitoringAgent() throws RemoteException, MonitoringException {
     super();
     init();
     try {
@@ -275,7 +275,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     return items;
   }
 
-  private void init() throws RemoteException {
+  private void init() throws RemoteException, MonitoringException {
     loadProperties();
     String zabbixHost = properties.getProperty("zabbix-host");
     String zabbixPort = properties.getProperty("zabbix-port");
@@ -297,7 +297,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     history = new LimitedQueue<>(historyLength);
     mapper = new GsonBuilder().setPrettyPrinting().create();
     subscriptions = new ArrayList<>();
-    subscriptions.add(
+    subscribeForFault(
         new AlarmEndpoint(
             "fmsystem",
             null,
