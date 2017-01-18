@@ -17,35 +17,32 @@ package org.openbaton.monitoring.agent.zabbix.api;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
+import java.util.ArrayList;
+import java.util.List;
 
-/** Created by mob on 17.11.15. */
-public class Opmessage {
-
-  @SerializedName("default_msg")
+/** Created by pku on 07.12.16. */
+public class Filter {
+  @SerializedName("conditions")
   @Expose
-  private Integer defaultMsg;
+  private List<Condition> conditions = new ArrayList<Condition>();
 
-  @SerializedName("mediatypeid")
+  @SerializedName("evaltype")
   @Expose
-  private String mediatypeid;
+  private Integer evaltype;
 
-  /** @return The defaultMsg */
-  public Integer getDefaultMsg() {
-    return defaultMsg;
+  public List<Condition> getConditions() {
+    return conditions;
   }
 
-  /** @param defaultMsg The default_msg */
-  public void setDefaultMsg(Integer defaultMsg) {
-    this.defaultMsg = defaultMsg;
+  public void setConditions(List<Condition> conditions) {
+    this.conditions = conditions;
   }
 
-  /** @return The mediatypeid */
-  public String getMediatypeid() {
-    return mediatypeid;
+  public Integer getEvaltype() {
+    return evaltype;
   }
 
-  /** @param mediatypeid The mediatypeid */
-  public void setMediatypeid(String mediatypeid) {
-    this.mediatypeid = mediatypeid;
+  public void setEvaltype(Integer evaltype) {
+    this.evaltype = evaltype;
   }
 }

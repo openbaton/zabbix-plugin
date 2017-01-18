@@ -1,0 +1,98 @@
+#!/bin/sh
+
+# Copyright (c) 2016 Open Baton (http://www.openbaton.org)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+##########################
+#### General Settings ####
+##########################
+
+set -e
+set -u
+#set -x # only for DEBUG
+
+# Make available the functions defined in /lib/lsb/init-functions
+. /lib/lsb/init-functions
+
+
+##########################
+#### Global Variables ####
+##########################
+
+OPENBATON_COMPONENT_NAME_FANCY="ZABBIX Monitoring Plugin"
+OPENBATON_COMPONENT_NAME=plugin-monitoring-zabbix
+
+OPENBATON_COMPONENT_BASE_DIR=/usr
+OPENBATON_COMPONENT_EXE_DIR=${OPENBATON_COMPONENT_BASE_DIR}/bin
+
+OPENBATON_COMPONENT_AUTOSTART_DEFAULT=true
+OPENBATON_COMPONENT_AUTOSTART=${OPENBATON_COMPONENT_AUTOSTART:-$OPENBATON_COMPONENT_AUTOSTART_DEFAULT}
+
+DEBIAN_FRONTEND_DEFAULT=interactive
+DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-$DEBIAN_FRONTEND_DEFAULT}
+
+
+####################
+#### Open Baton ####
+####################
+
+configure_zabbix_server () {
+    # In case of "noninteractive" FRONTEND the default value will remain valid (user: admin ; password: openbaton)
+    if [ "${DEBIAN_FRONTEND}" != "Noninteractive" -a "${DEBIAN_FRONTEND}" != "noninteractive" ]; then
+
+        read -p "Enter the ZABBIX server ip [localhost]: " zabbix_server_ip
+        if [ "${zabbix_server_ip}" != "" ]; then
+            export zabbix_server_ip=${zabbix_server_ip}
+            log_success_msg "Setting new ZABBIX server ip: ${zabbix_server_ip}"
+            sed -i "s/zabbix-host=localhost/zabbix-host=${zabbix_server_ip}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+        fi
+
+        read -p "Enter the ZABBIX user [admin]: " zabbix_user
+        if [ "${zabbix_user}" != "" ]; then
+            export zabbix_user=${zabbix_user}
+            log_success_msg "Setting new ZABBIX user: ${zabbix_user}"
+            sed -i "s/user-zbx=admin/user-zbx=${zabbix_user}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+        fi
+
+        # Turning echo on and off between password reading
+        stty -echo
+        read -p "Provide the ZABBIX user's password [zabbix]: " zabbix_pswd ; echo
+        stty echo
+        if [ "${zabbix_pswd}" != "" ]; then
+            export zabbix_pswd=${zabbix_pswd}
+            sed -i "s/password-zbx=zabbix/password-zbx=${zabbix_pswd}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+        fi
+    fi
+}
+
+configure () {
+    log_success_msg "Configuring Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation .."
+    configure_zabbix_server
+    chmod a+x ${OPENBATON_COMPONENT_EXE_DIR}/openbaton-${OPENBATON_COMPONENT_NAME}
+    log_success_msg "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation completed"
+
+    # Allow the use of the .deb package to install the Open Baton Component with Docker (the Docker file developer need to manage the starting of the Component in the Docker file) 
+    if [ "${OPENBATON_COMPONENT_AUTOSTART}" = "true" ]; then
+        if systemctl start openbaton-${OPENBATON_COMPONENT_NAME}.service >/dev/null 2>&1 ; then
+            log_success_msg "Starting the Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} .."
+        elif start openbaton-${OPENBATON_COMPONENT_NAME} >/dev/null 2>&1 ; then
+            log_success_msg "Starting the Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} .."
+        else 
+            log_failure_msg "Starting the Open Baton ${OPENBATON_COMPONENT_NAME_FANCY}"
+        fi
+    fi
+}
+
+configure
