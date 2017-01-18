@@ -16,17 +16,14 @@
 package org.openbaton.monitoring.agent.zabbix.api;
 
 import com.google.gson.*;
+import java.util.ArrayList;
+import java.util.List;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Created by mob on 18.11.15.
- */
+/** Created by mob on 18.11.15. */
 public class ZabbixApiManager {
 
   private Logger log = LoggerFactory.getLogger(this.getClass());

@@ -17,13 +17,10 @@ package org.openbaton.monitoring.agent.zabbix.api;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Created by mob on 17.11.15.
- */
+/** Created by mob on 17.11.15. */
 public class ZabbixAction {
   @SerializedName("name")
   @Expose
@@ -49,114 +46,72 @@ public class ZabbixAction {
   @Expose
   private List<Operation> operations = new ArrayList<Operation>();
 
-  /**
-   *
-   * @return The name
-   */
+  /** @return The name */
   public String getName() {
     return name;
   }
 
-  /**
-   *
-   * @param name The name
-   */
+  /** @param name The name */
   public void setName(String name) {
     this.name = name;
   }
 
-  /**
-   *
-   * @return The eventsource
-   */
+  /** @return The eventsource */
   public Integer getEventsource() {
     return eventsource;
   }
 
-  /**
-   *
-   * @param eventsource The eventsource
-   */
+  /** @param eventsource The eventsource */
   public void setEventsource(Integer eventsource) {
     this.eventsource = eventsource;
   }
 
-  /**
-   *
-   * @return The evaltype
-   */
+  /** @return The evaltype */
   public Integer getEvaltype() {
     return filter.getEvaltype();
   }
 
-  /**
-   *
-   * @param evaltype The evaltype
-   */
+  /** @param evaltype The evaltype */
   public void setEvaltype(Integer evaltype) {
     this.filter.setEvaltype(evaltype);
   }
 
-  /**
-   *
-   * @return The escPeriod
-   */
+  /** @return The escPeriod */
   public Integer getEscPeriod() {
     return escPeriod;
   }
 
-  /**
-   *
-   * @param escPeriod The esc_period
-   */
+  /** @param escPeriod The esc_period */
   public void setEscPeriod(Integer escPeriod) {
     this.escPeriod = escPeriod;
   }
 
-  /**
-   *
-   * @return The defLongdata
-   */
+  /** @return The defLongdata */
   public String getDefLongdata() {
     return defLongdata;
   }
 
-  /**
-   *
-   * @param defLongdata The def_longdata
-   */
+  /** @param defLongdata The def_longdata */
   public void setDefLongdata(String defLongdata) {
     this.defLongdata = defLongdata;
   }
 
-  /**
-   *
-   * @return The conditions
-   */
+  /** @return The conditions */
   public List<Condition> getConditions() {
     return filter.getConditions();
   }
 
-  /**
-   *
-   * @param conditions The conditions
-   */
+  /** @param conditions The conditions */
   public void setConditions(List<Condition> conditions) {
     this.filter.setConditions(conditions);
   }
 
-  /**
-   *
-   * @return The operations
-   */
+  /** @return The operations */
   public List<Operation> getOperations() {
     return operations;
   }
 
-  /**
-   *
-   * @param operations The operations
-   */
+  /** @param operations The operations */
   public void setOperations(List<Operation> operations) {
     this.operations = operations;
   }

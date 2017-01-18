@@ -26,9 +26,7 @@ import org.openbaton.exceptions.MonitoringException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Created by mob on 18.11.15.
- */
+/** Created by mob on 18.11.15. */
 public class ZabbixSender implements RestSender {
 
   private Logger log = LoggerFactory.getLogger(this.getClass());

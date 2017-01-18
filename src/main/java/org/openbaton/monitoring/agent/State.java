@@ -15,17 +15,11 @@
 
 package org.openbaton.monitoring.agent;
 
-import org.openbaton.monitoring.agent.HistoryObject;
-
 import java.util.Map;
 
-/**
- * Created by tbr on 30.10.15.
- */
+/** Created by tbr on 30.10.15. */
 
-/**
- * Represents the state of zabbix at a specific point of time.
- */
+/** Represents the state of zabbix at a specific point of time. */
 public class State {
 
   private Long time;

@@ -15,9 +15,7 @@
 
 package org.openbaton.monitoring.agent.alarm.catalogue;
 
-/**
- * Created by mob on 29.10.15.
- */
+/** Created by mob on 29.10.15. */
 public enum Metric {
   AGENT_PING,
 

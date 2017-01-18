@@ -19,9 +19,7 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Created by tbr on 27.10.15.
- */
+/** Created by tbr on 27.10.15. */
 public class HistoryObject implements Serializable {
 
   private static final long serialVersionUID = 1L;

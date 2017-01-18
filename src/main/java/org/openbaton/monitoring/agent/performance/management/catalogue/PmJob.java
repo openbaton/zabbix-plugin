@@ -15,17 +15,14 @@
 
 package org.openbaton.monitoring.agent.performance.management.catalogue;
 
-import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
-import org.openbaton.catalogue.util.IdGenerator;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
+import org.openbaton.catalogue.util.IdGenerator;
 
-/**
- * Created by mob on 24.11.15.
- */
+/** Created by mob on 24.11.15. */
 public class PmJob {
   private String pmjobId;
   private ObjectSelection objectSelection;

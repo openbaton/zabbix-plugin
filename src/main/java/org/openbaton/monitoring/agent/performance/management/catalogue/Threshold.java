@@ -18,13 +18,8 @@ package org.openbaton.monitoring.agent.performance.management.catalogue;
 import org.openbaton.catalogue.mano.common.monitoring.ObjectSelection;
 import org.openbaton.catalogue.mano.common.monitoring.ThresholdDetails;
 import org.openbaton.catalogue.mano.common.monitoring.ThresholdType;
-import org.openbaton.catalogue.util.IdGenerator;
 
-import java.util.List;
-
-/**
- * Created by mob on 25.11.15.
- */
+/** Created by mob on 25.11.15. */
 public class Threshold {
   private String thresholdId;
   private ObjectSelection objectSelectors;

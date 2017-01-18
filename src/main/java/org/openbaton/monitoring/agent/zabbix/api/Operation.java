@@ -17,13 +17,10 @@ package org.openbaton.monitoring.agent.zabbix.api;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Created by mob on 17.11.15.
- */
+/** Created by mob on 17.11.15. */
 public class Operation {
 
   @SerializedName("operationtype")
@@ -38,50 +35,32 @@ public class Operation {
   @Expose
   private Opmessage opmessage;
 
-  /**
-   *
-   * @return The operationtype
-   */
+  /** @return The operationtype */
   public Integer getOperationtype() {
     return operationtype;
   }
 
-  /**
-   *
-   * @param operationtype The operationtype
-   */
+  /** @param operationtype The operationtype */
   public void setOperationtype(Integer operationtype) {
     this.operationtype = operationtype;
   }
 
-  /**
-   *
-   * @return The opmessageUsr
-   */
+  /** @return The opmessageUsr */
   public List<OpmessageUsr> getOpmessageUsr() {
     return opmessageUsr;
   }
 
-  /**
-   *
-   * @param opmessageUsr The opmessage_usr
-   */
+  /** @param opmessageUsr The opmessage_usr */
   public void setOpmessageUsr(List<OpmessageUsr> opmessageUsr) {
     this.opmessageUsr = opmessageUsr;
   }
 
-  /**
-   *
-   * @return The opmessage
-   */
+  /** @return The opmessage */
   public Opmessage getOpmessage() {
     return opmessage;
   }
 
-  /**
-   *
-   * @param opmessage The opmessage
-   */
+  /** @param opmessage The opmessage */
   public void setOpmessage(Opmessage opmessage) {
     this.opmessage = opmessage;
   }

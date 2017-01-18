@@ -21,6 +21,16 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import java.io.*;
+import java.net.InetSocketAddress;
+import java.rmi.RemoteException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.openbaton.catalogue.mano.common.faultmanagement.VirtualizedResourceAlarmNotification;
 import org.openbaton.catalogue.mano.common.faultmanagement.VirtualizedResourceAlarmStateChangedNotification;
 import org.openbaton.catalogue.mano.common.monitoring.*;
@@ -36,20 +46,7 @@ import org.openbaton.monitoring.interfaces.MonitoringPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
-import java.net.InetSocketAddress;
-import java.rmi.RemoteException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-/**
- * Created by mob on 22.10.15.
- */
+/** Created by mob on 22.10.15. */
 public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
   private int historyLength;
@@ -129,16 +126,14 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
    * @param hostnames a list of hostnames
    * @param metrics a list of the metrics that shall be retrieved from every hostname
    * @param period you get for every suitable metric the average value it had for the last <period>
-   * seconds of time
+   *     seconds of time
    * @return a list of Items
    * @throws RemoteException
-   *
-   * The method gives back a list of Items. For every combination of hostname and metric, one
-   * ZabbixItem will be in the list. Every ZabbixItem contains the hostname, the host id, the latest
-   * value of one metric and the average value of the metric in the last <period> seconds. The
-   * average value is in the field 'value', the latest value is in the field 'lastValue'. The
-   * ZabbixItem's id is always null and the version 0.
-   *
+   *     <p>The method gives back a list of Items. For every combination of hostname and metric, one
+   *     ZabbixItem will be in the list. Every ZabbixItem contains the hostname, the host id, the
+   *     latest value of one metric and the average value of the metric in the last <period>
+   *     seconds. The average value is in the field 'value', the latest value is in the field
+   *     'lastValue'. The ZabbixItem's id is always null and the version 0.
    */
   //@Override
   public List<Item> getMeasurementResults(
@@ -321,9 +316,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
     datacenterAlarms = new HashMap<>();
   }
-  /**
-   * terminate the scheduler safely
-   */
+  /** terminate the scheduler safely */
   public void terminate() {
     log.info("Shuting down...");
     shutdownAndAwaitTermination(scheduler);

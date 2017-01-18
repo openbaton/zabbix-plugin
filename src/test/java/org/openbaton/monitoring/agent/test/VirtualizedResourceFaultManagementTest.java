@@ -14,6 +14,9 @@
  */
 package org.openbaton.monitoring.agent.test;
 
+import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -28,10 +31,6 @@ import org.openbaton.catalogue.mano.common.monitoring.VRAlarm;
 import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
-
-import java.rmi.RemoteException;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Created by pku on 14.12.16. */
 public class VirtualizedResourceFaultManagementTest {

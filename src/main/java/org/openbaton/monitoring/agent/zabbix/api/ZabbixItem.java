@@ -18,9 +18,7 @@ package org.openbaton.monitoring.agent.zabbix.api;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-/**
- * Created by mob on 18.11.15.
- */
+/** Created by mob on 18.11.15. */
 public class ZabbixItem {
   @SerializedName("name")
   @Expose

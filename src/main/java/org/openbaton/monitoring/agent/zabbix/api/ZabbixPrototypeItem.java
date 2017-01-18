@@ -18,9 +18,7 @@ package org.openbaton.monitoring.agent.zabbix.api;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-/**
- * Created by mob on 15.01.16.
- */
+/** Created by mob on 15.01.16. */
 public class ZabbixPrototypeItem extends ZabbixItem {
   @SerializedName("ruleid")
   @Expose

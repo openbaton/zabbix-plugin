@@ -17,13 +17,10 @@ package org.openbaton.monitoring.agent.zabbix.api;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Created by pku on 07.12.16.
- */
+/** Created by pku on 07.12.16. */
 public class Filter {
   @SerializedName("conditions")
   @Expose

@@ -14,6 +14,10 @@
  */
 package org.openbaton.monitoring.agent.test;
 
+import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -27,14 +31,7 @@ import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.ZabbixMonitoringAgent;
 import org.springframework.util.Assert;
 
-import java.rmi.RemoteException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * Created by mob on 24.11.15.
- */
+/** Created by mob on 24.11.15. */
 public class VirtualizedResourcePerformanceManagementTest {
 
   private final String[] hostnameList = {"Zabbix server"};

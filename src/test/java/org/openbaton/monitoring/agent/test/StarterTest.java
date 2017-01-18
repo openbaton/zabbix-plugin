@@ -1,12 +1,11 @@
 package org.openbaton.monitoring.agent.test;
 
+import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.openbaton.monitoring.agent.Starter;
-
-import java.io.IOException;
 
 /** Created by pku on 09.12.16. */
 public class StarterTest {
