@@ -43,6 +43,10 @@ OPENBATON_COMPONENT_AUTOSTART=${OPENBATON_COMPONENT_AUTOSTART:-$OPENBATON_COMPON
 DEBIAN_FRONTEND_DEFAULT=interactive
 DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-$DEBIAN_FRONTEND_DEFAULT}
 
+ZABBIX_SERVER_IP_DEFAULT=localhost
+ZABBIX_USER_DEFAULT=admin
+ZABBIX_USER_PASSWORD_DEFAULT=zabbix
+
 
 ####################
 #### Open Baton ####
@@ -51,30 +55,39 @@ DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-$DEBIAN_FRONTEND_DEFAULT}
 configure_zabbix_server () {
     # In case of "noninteractive" FRONTEND the default value will remain valid (user: admin ; password: openbaton)
     if [ "${DEBIAN_FRONTEND}" != "Noninteractive" -a "${DEBIAN_FRONTEND}" != "noninteractive" ]; then
-
         read -p "Enter the ZABBIX server ip [localhost]: " zabbix_server_ip
-        if [ "${zabbix_server_ip}" != "" ]; then
-            export zabbix_server_ip=${zabbix_server_ip}
-            log_success_msg "Setting new ZABBIX server ip: ${zabbix_server_ip}"
-            sed -i "s/zabbix-host=localhost/zabbix-host=${zabbix_server_ip}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
-        fi
+        export zabbix_server_ip=${zabbix_server_ip}
 
         read -p "Enter the ZABBIX user [admin]: " zabbix_user
-        if [ "${zabbix_user}" != "" ]; then
-            export zabbix_user=${zabbix_user}
-            log_success_msg "Setting new ZABBIX user: ${zabbix_user}"
-            sed -i "s/user-zbx=admin/user-zbx=${zabbix_user}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
-        fi
+        export zabbix_user=${zabbix_user}
 
         # Turning echo on and off between password reading
         stty -echo
-        read -p "Provide the ZABBIX user's password [zabbix]: " zabbix_pswd ; echo
+        read -p "Provide the ZABBIX user's password [zabbix]: " zabbix_user_password ; echo
         stty echo
-        if [ "${zabbix_pswd}" != "" ]; then
-            export zabbix_pswd=${zabbix_pswd}
-            sed -i "s/password-zbx=zabbix/password-zbx=${zabbix_pswd}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
-        fi
+        export zabbix_user_password=${zabbix_user_password}
     fi
+
+    # Set the zabbix server ip
+    if [ -z ${zabbix_server_ip} ] ; then # The empty string is considered as unset
+        zabbix_server_ip=${ZABBIX_SERVER_IP_DEFAULT}
+    fi
+    log_success_msg "Setting new ZABBIX server ip: ${zabbix_server_ip}"
+    sed -i "s/zabbix-host\s*=\s*localhost/zabbix-host\ =\ ${zabbix_server_ip}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+
+    # Set the zabbix user
+    if [ -z ${zabbix_user} ] ; then # The empty string is considered as unset
+        zabbix_user=${ZABBIX_USER_DEFAULT}
+    fi
+    log_success_msg "Setting new ZABBIX user: ${zabbix_user}"
+    sed -i "s/user-zbx\s*=\s*admin/user-zbx\ =\ ${zabbix_user}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+
+    # Set the zabbix user's password
+    if [ -z ${zabbix_user_password} ] ; then # The empty string is considered as unset
+        zabbix_user_password=${ZABBIX_USER_PASSWORD_DEFAULT}
+    fi
+    log_success_msg "Setting new ZABBIX user's password: ${zabbix_user_password}"
+    sed -i "s/password-zbx\s*=\s*zabbix/password-zbx\ =\ ${zabbix_user_password}/g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
 }
 
 configure () {
