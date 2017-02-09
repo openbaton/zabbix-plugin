@@ -22,7 +22,7 @@ ext {
     fullName = "${baseName}-${componentName}"
     propertiesDir = '/etc/openbaton'
     baseBinaryDir = '/usr/lib/openbaton'
-    jarSubpathName = "plugins".replaceAll("-", "/")
+    jarSubpathName = "plugins/monitoring".replaceAll("-", "/")
 }
 
 task makedeb(type: Deb, dependsOn: [jar, build]) { 
