@@ -28,6 +28,7 @@ public class StarterTest {
   }
 
   @Test(expected = ArrayIndexOutOfBoundsException.class)
+  @Ignore
   public void wrongParameterCountStarterTest()
       throws IllegalAccessException, IOException, InstantiationException, TimeoutException,
           NoSuchMethodException, InvocationTargetException {
