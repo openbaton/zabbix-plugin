@@ -1,6 +1,8 @@
 package org.openbaton.monitoring.agent.test;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -18,13 +20,17 @@ public class StarterTest {
 
   @Test
   @Ignore
-  public void startAndStopStarterTest() {
+  public void startAndStopStarterTest()
+      throws IllegalAccessException, IOException, InstantiationException, TimeoutException,
+          NoSuchMethodException, InvocationTargetException {
     Starter.main(new String[] {""});
     Starter.main(new String[] {"zabbix", "localhost", "5672", "1"});
   }
 
   @Test(expected = ArrayIndexOutOfBoundsException.class)
-  public void wrongParameterCountStarterTest() {
+  public void wrongParameterCountStarterTest()
+      throws IllegalAccessException, IOException, InstantiationException, TimeoutException,
+          NoSuchMethodException, InvocationTargetException {
     Starter.main(new String[] {"garbage here", "and here"});
   }
 

@@ -23,52 +23,20 @@ import org.slf4j.LoggerFactory;
 
 public class Starter {
 
-  public static void main(String[] args) {
+  public static void main(String[] args)
+      throws IOException, InstantiationException, TimeoutException, IllegalAccessException,
+          InvocationTargetException, NoSuchMethodException {
     Logger log = LoggerFactory.getLogger(Starter.class);
-    if (args.length > 1) {
-      log.info(
-          "Starting plugin with params: pluginName="
-              + args[0]
-              + " registryIp="
-              + args[1]
-              + " registryPort="
-              + args[2]);
-      try {
-        PluginStarter.registerPlugin(
-            ZabbixMonitoringAgent.class, args[0], args[1], Integer.parseInt(args[2]), 1);
-      } catch (IOException e) {
-        e.printStackTrace();
-      } catch (TimeoutException e) {
-        e.printStackTrace();
-      } catch (NoSuchMethodException e) {
-        e.printStackTrace();
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      } catch (InstantiationException e) {
-        e.printStackTrace();
-      }
+    if (args.length == 4) {
+      PluginStarter.registerPlugin(
+          ZabbixMonitoringAgent.class,
+          args[0],
+          args[1],
+          Integer.parseInt(args[2]),
+          //          Integer.parseInt(args[3]));
+          1);
     } else {
-      log.info(
-          "Starting plugin with default params: pluginName="
-              + "smart-dummy"
-              + " registryIp=localhost registryPort=1099");
-      try {
-        PluginStarter.registerPlugin(ZabbixMonitoringAgent.class, "zabbix", "localhost", 5672, 1);
-      } catch (IOException e) {
-        e.printStackTrace();
-      } catch (TimeoutException e) {
-        e.printStackTrace();
-      } catch (NoSuchMethodException e) {
-        e.printStackTrace();
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      } catch (InstantiationException e) {
-        e.printStackTrace();
-      }
+      PluginStarter.registerPlugin(ZabbixMonitoringAgent.class, "zabbix", "localhost", 5672, 1);
     }
   }
 }
