@@ -29,9 +29,11 @@ public class ZabbixApiManager {
   private Logger log = LoggerFactory.getLogger(this.getClass());
   private ZabbixSender zabbixSender;
   private Gson mapper = new GsonBuilder().setPrettyPrinting().create();
+  private String zabbixServerVersion;
 
-  public ZabbixApiManager(ZabbixSender zabbixSender) {
+  public ZabbixApiManager(ZabbixSender zabbixSender, String zabbixServerVersion) {
     this.zabbixSender = zabbixSender;
+    this.zabbixServerVersion = zabbixServerVersion;
   }
 
   public String createTrigger(String description, String expression, Integer priority)
@@ -174,21 +176,39 @@ public class ZabbixApiManager {
 
     zabbixAction.setConditions(conditions);
 
-    String defLongData =
-        "{"
-            + "triggerId: {TRIGGER.ID}, "
-            + "triggerName: {TRIGGER.NAME}, "
-            + "triggerStatus: {TRIGGER.STATUS}, "
-            + "triggerSeverity: {TRIGGER.SEVERITY}, "
-            + "triggerUrl: {TRIGGER.URL}, "
-            + "itemName: {ITEM.NAME}, "
-            + "hostName: {HOST.NAME}, "
-            + "itemKey: {ITEM.KEY}, "
-            + "itemValue: {ITEM.VALUE}, "
-            + "eventId: {EVENT.ID}, "
-            + "eventDate: {EVENT.DATE}, "
-            + "eventTime: {EVENT.TIME}"
-            + "}";
+    String defLongData;
+    if (zabbixServerVersion.startsWith("3"))
+      defLongData =
+          "{"
+              + "triggerId: \"{TRIGGER.ID}\", "
+              + "triggerName: \"{TRIGGER.NAME}\", "
+              + "triggerStatus: {TRIGGER.STATUS}, "
+              + "triggerSeverity: \"{TRIGGER.SEVERITY}\", "
+              + "triggerUrl: \"{TRIGGER.URL}\", "
+              + "itemName: \"{ITEM.NAME}\", "
+              + "hostName: \"{HOST.NAME}\", "
+              + "itemKey: \"{ITEM.KEY}\", "
+              + "itemValue: \"{ITEM.VALUE}\", "
+              + "eventId: {EVENT.ID}, "
+              + "eventDate: \"{EVENT.DATE}\", "
+              + "eventTime: \"{EVENT.TIME}\""
+              + "}";
+    else
+      defLongData =
+          "{"
+              + "triggerId: {TRIGGER.ID}, "
+              + "triggerName: {TRIGGER.NAME}, "
+              + "triggerStatus: {TRIGGER.STATUS}, "
+              + "triggerSeverity: {TRIGGER.SEVERITY}, "
+              + "triggerUrl: {TRIGGER.URL}, "
+              + "itemName: {ITEM.NAME}, "
+              + "hostName: {HOST.NAME}, "
+              + "itemKey: {ITEM.KEY}, "
+              + "itemValue: {ITEM.VALUE}, "
+              + "eventId: {EVENT.ID}, "
+              + "eventDate: {EVENT.DATE}, "
+              + "eventTime: {EVENT.TIME}"
+              + "}";
     zabbixAction.setDefLongdata(defLongData);
 
     zabbixAction.setEscPeriod(60);
