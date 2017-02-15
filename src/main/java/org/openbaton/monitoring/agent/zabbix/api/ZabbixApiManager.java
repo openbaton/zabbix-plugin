@@ -136,7 +136,9 @@ public class ZabbixApiManager {
   public String createAction(String actionName, String triggerName) throws MonitoringException {
     log.debug("createAction");
     String actionId = null;
-    ZabbixAction zabbixAction = new ZabbixAction();
+    ZabbixAction zabbixAction;
+    if (zabbixServerVersion.startsWith("3")) zabbixAction = new ZabbixAction_v30();
+    else zabbixAction = new ZabbixAction_v22();
 
     OpmessageUsr opmessageUsr = new OpmessageUsr();
     //Id of the admin user
@@ -218,8 +220,10 @@ public class ZabbixApiManager {
     List<Operation> operations = new ArrayList<>();
     operations.add(operation);
     zabbixAction.setOperations(operations);
-
-    String params = mapper.toJson(zabbixAction, ZabbixAction.class);
+    String params;
+    if (zabbixServerVersion.startsWith("3"))
+      params = mapper.toJson(zabbixAction, ZabbixAction_v30.class);
+    else params = mapper.toJson(zabbixAction, ZabbixAction_v22.class);
 
     log.debug("Sending params: " + params);
 
