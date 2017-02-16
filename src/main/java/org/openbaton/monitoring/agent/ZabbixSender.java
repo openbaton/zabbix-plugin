@@ -183,8 +183,8 @@ public class ZabbixSender implements RestSender {
   }
 
   private void startWatcher() {
-    Whatcher whatcher = new Whatcher();
-    executorService.scheduleAtFixedRate(whatcher, 0, 5, TimeUnit.SECONDS);
+    Watcher watcher = new Watcher();
+    executorService.scheduleAtFixedRate(watcher, 0, 5, TimeUnit.SECONDS);
   }
 
   public void destroy() {
@@ -208,7 +208,7 @@ public class ZabbixSender implements RestSender {
     log.debug("Authenticated to Zabbix Server " + zabbixURL + " with TOKEN " + TOKEN);
   }
 
-  private class Whatcher implements Runnable {
+  private class Watcher implements Runnable {
     @Override
     public void run() {
       String jsonRequest =
