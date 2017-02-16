@@ -76,12 +76,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
       new Runnable() {
         @Override
         public void run() {
-          JsonObject responseObj = null;
+          JsonObject responseObj;
           String params = "{'output': ['name'], 'selectItems': ['key_', 'lastvalue']}";
           try {
             responseObj = zabbixSender.callPost(params, "host.get");
           } catch (MonitoringException e) {
             log.error("Exception while updating hosts:" + e.getMessage());
+            return;
           }
           long timestamp = System.currentTimeMillis() / 1000;
           JsonArray hostArray = responseObj.get("result").getAsJsonArray();
@@ -279,6 +280,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     String zabbixServerVersion = properties.getProperty("zabbix-server-version", "3.0");
     Boolean zabbixSsl = Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false"));
     zabbixSender = new ZabbixSender(zabbixHost, zabbixPort, zabbixSsl, username, password);
+    zabbixSender.authenticate();
     zabbixApiManager = new ZabbixApiManager(zabbixSender, zabbixServerVersion);
     String nrsp = properties.getProperty("notification-receiver-server-port", "8010");
     notificationReceiverServerPort = Integer.parseInt(nrsp);
@@ -304,16 +306,9 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     pmJobs = new HashMap<>();
     thresholds = new HashMap<>();
     triggerIdActionIdMap = new HashMap<>();
-    try {
-      zabbixSender.authenticate();
-    } catch (MonitoringException e) {
-      log.error("Authentication failed: " + e.getMessage());
-      throw new RemoteException("Authentication to Zabbix server failed.");
-    }
     if (requestFrequency > 0) {
       updateHistory.run();
-      scheduler.scheduleAtFixedRate(
-          updateHistory, requestFrequency, requestFrequency, TimeUnit.SECONDS);
+      scheduler.scheduleAtFixedRate(updateHistory, 3, requestFrequency, TimeUnit.SECONDS);
     }
     datacenterAlarms = new HashMap<>();
   }
@@ -322,6 +317,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     log.info("Shuting down...");
     shutdownAndAwaitTermination(scheduler);
     server.stop(10);
+    zabbixSender.destroy();
   }
 
   void shutdownAndAwaitTermination(ExecutorService pool) {

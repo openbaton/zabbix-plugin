@@ -43,8 +43,8 @@ public class VirtualizedResourceFaultManagementTest {
   @BeforeClass
   public static void init() throws InterruptedException, MonitoringException, RemoteException {
     zabbixMonitoringAgent = new ZabbixMonitoringAgent();
-    subscriptionIds = new ArrayList<String>();
-    thresholdIds = new ArrayList<String>();
+    subscriptionIds = new ArrayList<>();
+    thresholdIds = new ArrayList<>();
     Thread.sleep(3000);
   }
 

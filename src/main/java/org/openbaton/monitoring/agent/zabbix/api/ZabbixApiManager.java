@@ -36,6 +36,10 @@ public class ZabbixApiManager {
     this.zabbixServerVersion = zabbixServerVersion;
   }
 
+  public void destroy() {
+    zabbixSender.destroy();
+  }
+
   public String createTrigger(String description, String expression, Integer priority)
       throws MonitoringException {
     log.debug("createTrigger");

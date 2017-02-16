@@ -22,6 +22,9 @@ import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.openbaton.exceptions.MonitoringException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +40,8 @@ public class ZabbixSender implements RestSender {
   private String zabbixURL;
   private String username;
   private String password;
+  protected boolean isAvailable;
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
   public ZabbixSender(
       String zabbixHost, String zabbixPort, Boolean zabbixSsl, String username, String password) {
@@ -82,6 +87,7 @@ public class ZabbixSender implements RestSender {
   }
 
   public JsonObject callPost(String content, String method) throws MonitoringException {
+    if (!isAvailable) throw new MonitoringException("Zabbix Server is not reachable");
     HttpResponse<String> jsonResponse = null;
 
     String body = prepareJson(content, method);
@@ -173,11 +179,23 @@ public class ZabbixSender implements RestSender {
     this.zabbixHost = zabbixHost;
     this.username = username;
     this.password = password;
-
-    this.authenticate();
+    this.authenticateToZabbix();
   }
 
-  public void authenticate() throws MonitoringException {
+  private void startWatcher() {
+    Whatcher whatcher = new Whatcher();
+    executorService.scheduleAtFixedRate(whatcher, 0, 5, TimeUnit.SECONDS);
+  }
+
+  public void destroy() {
+    executorService.shutdown();
+  }
+
+  public void authenticate() {
+    startWatcher();
+  }
+
+  protected void authenticateToZabbix() throws MonitoringException {
     String params = "{'user':'" + username + "','password':'" + password + "'}";
 
     JsonObject responseObj = callPost(params, "user.login");
@@ -187,6 +205,44 @@ public class ZabbixSender implements RestSender {
     }
     this.TOKEN = result.getAsString();
 
-    //log.debug("Authenticated to Zabbix Server " + zabbixURL + " with TOKEN " + TOKEN);
+    log.debug("Authenticated to Zabbix Server " + zabbixURL + " with TOKEN " + TOKEN);
+  }
+
+  private class Whatcher implements Runnable {
+    @Override
+    public void run() {
+      String jsonRequest =
+          "{\"jsonrpc\":\"2.0\",\"method\":\"apiinfo.version\",\"id\":1,\"auth\":null,\"params\":{}}";
+      String zabbixVersion = null;
+      try {
+        if (!isAvailable) {
+          log.info("");
+          log.info("Trying to connect to Zabbix at url: " + zabbixURL + "...");
+        }
+        HttpResponse<String> response =
+            doRestCallWithJson(zabbixURL, jsonRequest, HttpMethod.POST, "application/json-rpc");
+        JsonElement responseEl = mapper.fromJson(response.getBody(), JsonElement.class);
+        JsonObject responseObj = responseEl.getAsJsonObject();
+        zabbixVersion = responseObj.get("result").getAsString();
+      } catch (Exception e) {
+        log.error("Zabbix Server not reachable at this url: " + zabbixURL);
+        log.debug(e.getMessage());
+        isAvailable = false;
+        return;
+      }
+      if (!isAvailable) {
+        isAvailable = true;
+        log.info("Connected to Zabbix " + zabbixVersion + " at url: " + zabbixURL);
+        log.debug("trying autentication..");
+        try {
+          authenticateToZabbix();
+        } catch (Exception e) {
+          log.error(e.getMessage());
+          isAvailable = false;
+          return;
+        }
+      }
+      isAvailable = true;
+    }
   }
 }
