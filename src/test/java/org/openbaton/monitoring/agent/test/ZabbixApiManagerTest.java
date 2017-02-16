@@ -63,7 +63,8 @@ public class ZabbixApiManagerTest {
         "http://" + properties.getProperty("zabbix-host") + "/zabbix/api_jsonrpc.php",
         properties.getProperty("user-zbx"),
         properties.getProperty("password-zbx")); /* to force double authentication */
-    zabbixApiManager = new ZabbixApiManager(zabbixSender);
+    zabbixApiManager =
+        new ZabbixApiManager(zabbixSender, properties.getProperty("zabbix-server-version", "3.0"));
     triggerIds = new ArrayList<>();
     actionIds = new ArrayList<>();
     prototypeIds = new ArrayList<>();
