@@ -269,6 +269,31 @@ public class ZabbixApiManager {
     return itemsId;
   }
 
+  public String getItem(String itemKey, String hostId) throws MonitoringException {
+    String itemId = null;
+
+    String params =
+        "{'output': ['itemid'],'hostids': '" + hostId + "','search': {'key_': '" + itemKey + "'}}";
+    log.debug("Sending params (get item): " + params);
+
+    JsonObject responseObj = zabbixSender.callPost(params, "item.get");
+    log.debug("response received:" + responseObj);
+
+    JsonElement resultEl = responseObj.get("result");
+
+    if (resultEl == null || !resultEl.isJsonArray())
+      throw new MonitoringException("Unknown response from zabbix server: " + responseObj);
+
+    JsonArray resultArray = resultEl.getAsJsonArray();
+    if (resultArray.size() != 0) {
+      JsonObject itemIdObj = resultArray.get(0).getAsJsonObject();
+      itemId = itemIdObj.get("itemid").getAsString();
+      log.debug("The item with itemKey " + itemKey + " has the id: " + itemId);
+    }
+    log.debug("The item with itemKey " + itemKey + " does not exists");
+    return itemId;
+  }
+
   public String getHostId(String hostname) throws MonitoringException {
     String hostId = "";
     String params = "{'output': ['hostid'],'filter':{'host': ['" + hostname + "']}}";

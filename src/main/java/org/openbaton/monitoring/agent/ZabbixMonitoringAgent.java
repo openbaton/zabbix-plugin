@@ -607,43 +607,50 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
       throw new MonitoringException("The collectionPeriod or reportingPeriod is negative");
     PmJob pmJob = null;
     try {
-      if (performanceMetrics != null) {
-        if (performanceMetrics.isEmpty())
-          throw new MonitoringException("PerformanceMetrics is null");
-        pmJob = new PmJob(objectSelection, collectionPeriod);
-        for (String hostname : objectSelection.getObjectInstanceIds()) {
-          String hostId = zabbixApiManager.getHostId(hostname);
-          String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
-          for (String performanceMetric : performanceMetrics) {
-            log.debug("The performance metric is: " + performanceMetric);
-            int type = getType(collectionPeriod);
-            //Check if is present a LLD
-            String itemId;
-            if (isPrototype(performanceMetric)) {
-              String ruleId = zabbixApiManager.getRuleId(hostId);
-              itemId =
-                  zabbixApiManager.createPrototypeItem(
-                      collectionPeriod,
-                      hostId,
-                      interfaceId,
-                      performanceMetric,
-                      "ZabbixPrototypeItem on demand: " + performanceMetric,
-                      type,
-                      0,
-                      ruleId);
-              pmJob.addPerformanceMetric(itemId, performanceMetric);
-            } else {
-              itemId =
-                  zabbixApiManager.createItem(
-                      "ZabbixItem on demand: " + performanceMetric,
-                      collectionPeriod,
-                      hostId,
-                      type,
-                      0,
-                      performanceMetric,
-                      interfaceId);
-              pmJob.addPerformanceMetric(itemId, performanceMetric);
-            }
+      if (performanceMetrics == null || performanceMetrics.isEmpty())
+        throw new MonitoringException("PerformanceMetrics is null");
+      pmJob = new PmJob(objectSelection, collectionPeriod);
+      for (String hostname : objectSelection.getObjectInstanceIds()) {
+        String hostId = zabbixApiManager.getHostId(hostname);
+        String interfaceId = zabbixApiManager.getHostInterfaceId(hostId);
+        for (String performanceMetric : performanceMetrics) {
+          log.debug("The performance metric is: " + performanceMetric);
+          int type = getType(collectionPeriod);
+
+          // check already exists
+          String itemId = zabbixApiManager.getItem(performanceMetric, hostId);
+
+          if (itemId != null) {
+            pmJob.addPerformanceMetric(itemId, performanceMetric);
+            continue;
+          }
+
+          //Check if is present a LLD
+          if (isPrototype(performanceMetric)) {
+
+            String ruleId = zabbixApiManager.getRuleId(hostId);
+            itemId =
+                zabbixApiManager.createPrototypeItem(
+                    collectionPeriod,
+                    hostId,
+                    interfaceId,
+                    performanceMetric,
+                    "ZabbixPrototypeItem on demand: " + performanceMetric,
+                    type,
+                    0,
+                    ruleId);
+            pmJob.addPerformanceMetric(itemId, performanceMetric);
+          } else {
+            itemId =
+                zabbixApiManager.createItem(
+                    "ZabbixItem on demand: " + performanceMetric,
+                    collectionPeriod,
+                    hostId,
+                    type,
+                    0,
+                    performanceMetric,
+                    interfaceId);
+            pmJob.addPerformanceMetric(itemId, performanceMetric);
           }
         }
       }
