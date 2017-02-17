@@ -51,6 +51,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
   private int historyLength;
   private int requestFrequency;
+  private String zabbixPluginIp;
   private ZabbixSender zabbixSender;
   private ZabbixApiManager zabbixApiManager;
   private String notificationReceiverServerContext;
@@ -278,6 +279,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     String username = properties.getProperty("user-zbx");
     String password = properties.getProperty("password-zbx");
     String zabbixServerVersion = properties.getProperty("zabbix-server-version", "3.0");
+    zabbixPluginIp = properties.getProperty("zabbix-plugin-ip");
     Boolean zabbixSsl = Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false"));
     zabbixSender = new ZabbixSender(zabbixHost, zabbixPort, zabbixSsl, username, password);
     zabbixSender.authenticate();
@@ -614,7 +616,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
           int type = getType(collectionPeriod);
 
           // check already exists
-          String itemId = zabbixApiManager.getItem(performanceMetric, hostId);
+          String itemId = zabbixApiManager.getItemId(performanceMetric, hostId);
 
           if (itemId != null) {
             pmJob.addPerformanceMetric(itemId, performanceMetric);
@@ -723,9 +725,15 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
       throw new MonitoringException("The performanceMetric needs to be present");
     if (thresholdDetails == null) throw new MonitoringException("The thresholdDetails is null");
     //TODO Investigate which are the cases where we need more than one objectSelector
+
+    //check if media is configured
+    // this is required to allow Zabbix Plugin to receive the notification
+    configureMedia();
+
     //Now we use only one objectSelector
     List<String> hostnames = objectSelector.getObjectInstanceIds();
     Threshold threshold;
+
     try {
       String firstHostname = hostnames.get(0);
       String thresholdExpression = "";
@@ -763,15 +771,42 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
       threshold.setThresholdId(triggerId);
 
       thresholds.put(threshold.getThresholdId(), threshold);
+      String mediaId = zabbixApiManager.getScriptUserMediaScript();
+      String mediatypeId = zabbixApiManager.getMediaTypeId(mediaId);
 
       //create an action to be notified when this threshold is crossed
       String actionId =
-          zabbixApiManager.createAction("Action for (" + thresholdName + ")", thresholdName);
+          zabbixApiManager.createAction(
+              "Action for (" + thresholdName + ")", thresholdName, mediatypeId);
       triggerIdActionIdMap.put(triggerId, actionId);
     } catch (Exception e) {
       throw new MonitoringException("The threshold cannot be created: " + e.getMessage(), e);
     }
     return threshold.getThresholdId();
+  }
+
+  private void configureMedia() throws MonitoringException {
+
+    String usermediaId = zabbixApiManager.getScriptUserMediaScript();
+    if (usermediaId != null) {
+      log.debug("Zabbix already configured to get the notification afterwards");
+      return;
+    }
+    log.debug("Start Zabbix configuration to get the notification afterwards");
+    try {
+      // creating mediatype script
+      String mediatypeId = zabbixApiManager.createMediaTypeScript();
+      // adding the mediatype to the user ADMIN
+      usermediaId = zabbixApiManager.addMedia("1", mediatypeId, zabbixPluginIp);
+      if (usermediaId != null) log.debug("Zabbix configured successfully");
+      else
+        throw new MonitoringException(
+            "The media script has not be created correctly on Zabbix Server");
+    } catch (Exception e) {
+      log.error(
+          "It was not possible to configure Zabbix Server, such configuration needs to be done manually");
+      log.debug(e.getMessage(), e);
+    }
   }
 
   @Override

@@ -138,7 +138,7 @@ public class ZabbixSender implements RestSender {
     jsonObject.addProperty("jsonrpc", "2.0");
     jsonObject.addProperty("method", method);
 
-    if (TOKEN != null) jsonObject.addProperty("auth", TOKEN);
+    if (TOKEN != null && !method.equals("user.login")) jsonObject.addProperty("auth", TOKEN);
     jsonObject.addProperty("id", 1);
 
     //log.debug("Json for zabbix:\n" + mapper.toJson(jsonObject));
@@ -184,7 +184,7 @@ public class ZabbixSender implements RestSender {
 
   private void startWatcher() {
     Watcher watcher = new Watcher();
-    executorService.scheduleAtFixedRate(watcher, 0, 5, TimeUnit.SECONDS);
+    executorService.scheduleAtFixedRate(watcher, 0, 10, TimeUnit.SECONDS);
   }
 
   public void destroy() {

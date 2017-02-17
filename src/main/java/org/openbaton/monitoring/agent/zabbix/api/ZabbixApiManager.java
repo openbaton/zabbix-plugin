@@ -137,7 +137,8 @@ public class ZabbixApiManager {
     return delete("action", actionIdsToDelete);
   }
 
-  public String createAction(String actionName, String triggerName) throws MonitoringException {
+  public String createAction(String actionName, String triggerName, String mediatypeId)
+      throws MonitoringException {
     log.debug("createAction");
     String actionId = null;
     ZabbixAction zabbixAction;
@@ -151,7 +152,7 @@ public class ZabbixApiManager {
     Opmessage opmessage = new Opmessage();
     opmessage.setDefaultMsg(1);
     //MediaType script
-    opmessage.setMediatypeid("4");
+    opmessage.setMediatypeid(mediatypeId);
 
     Operation operation = new Operation();
     List<OpmessageUsr> opmessageUsrList = new ArrayList<>();
@@ -273,7 +274,7 @@ public class ZabbixApiManager {
     return itemsId;
   }
 
-  public String getItem(String itemKey, String hostId) throws MonitoringException {
+  public String getItemId(String itemKey, String hostId) throws MonitoringException {
     String itemId = null;
 
     String params =
@@ -293,9 +294,82 @@ public class ZabbixApiManager {
       JsonObject itemIdObj = resultArray.get(0).getAsJsonObject();
       itemId = itemIdObj.get("itemid").getAsString();
       log.debug("The item with itemKey " + itemKey + " has the id: " + itemId);
-    }
-    log.debug("The item with itemKey " + itemKey + " does not exists");
+    } else log.debug("The item with itemKey " + itemKey + " does not exists");
     return itemId;
+  }
+
+  public String getScriptUserMediaScript() throws MonitoringException {
+    String params = "{\"output\":\"extend\"}";
+    JsonObject responseObj = zabbixSender.callPost(params, "usermedia.get");
+    try {
+      JsonElement resultEl = responseObj.get("result");
+      if (resultEl != null && resultEl.isJsonArray()) {
+        JsonArray resultAr = resultEl.getAsJsonArray();
+        for (JsonElement elementOfArray : resultAr) {
+          JsonObject resultObjectMap = elementOfArray.getAsJsonObject();
+          if (resultObjectMap.get("sendto") == null) continue;
+          String sendto = resultObjectMap.get("sendto").getAsString();
+          if (sendto.contains("zabbixplugin")) return resultObjectMap.get("mediaid").getAsString();
+        }
+      }
+    } catch (Exception e) {
+      return null;
+    }
+    return null;
+  }
+
+  public String getMediaTypeId(String mediaId) throws MonitoringException {
+    String mediatypeId = null;
+    String params = "{\"output\":[\"mediatypeid\"],\"mediaids\":\"" + mediaId + "\"}";
+    JsonObject responseObj = zabbixSender.callPost(params, "mediatype.get");
+    JsonElement resultEl = responseObj.get("result");
+    if (resultEl != null && resultEl.isJsonArray()) {
+      JsonArray resultAr = resultEl.getAsJsonArray();
+      JsonObject resultObjectMap = resultAr.get(0).getAsJsonObject();
+      mediatypeId = resultObjectMap.get("mediatypeid").getAsString();
+    }
+    return mediatypeId;
+  }
+
+  public String addMedia(String userId, String mediatypeId, String zabbixPluginIp)
+      throws MonitoringException {
+    String mediaId = null;
+    String params =
+        "{'users': [{'userid':'"
+            + userId
+            + "'}],'medias':{'mediatypeid':'"
+            + mediatypeId
+            + "',"
+            + "'sendto':'"
+            + zabbixPluginIp
+            + ":8010/zabbixplugin/notifications',"
+            + "'active':0,\"period\": \"1-7,00:00-24:00\",\"severity\":63} }";
+    JsonObject responseObj = zabbixSender.callPost(params, "user.addmedia");
+    JsonElement resultEl = responseObj.get("result");
+    if (resultEl != null && resultEl.isJsonObject()) {
+      JsonObject resultObj = resultEl.getAsJsonObject();
+      JsonArray itemsIdsArray = resultObj.get("mediaids").getAsJsonArray();
+      mediaId = itemsIdsArray.get(0).getAsString();
+    }
+    return mediaId;
+  }
+
+  public String createMediaTypeScript() throws MonitoringException {
+    String mediatypeId = null;
+    String params =
+        "{\"description\":\"Script\",\"type\":1,\"exec_path\":\"send_notification.sh\","
+            + "\"exec_params\":\"{ALERT.SENDTO}\n{ALERT.SUBJECT}\n{ALERT.MESSAGE}\n\"}";
+
+    JsonObject responseObj = zabbixSender.callPost(params, "mediatype.create");
+    JsonElement resultEl = responseObj.get("result");
+    if (resultEl != null && resultEl.isJsonObject()) {
+      JsonObject resultObj = resultEl.getAsJsonObject();
+      JsonArray mediatypeIdsArray = resultObj.get("mediatypeids").getAsJsonArray();
+      mediatypeId = mediatypeIdsArray.get(0).getAsString();
+      log.debug("Created the mediatype script with id: " + mediatypeId);
+    }
+
+    return mediatypeId;
   }
 
   public String getHostId(String hostname) throws MonitoringException {
