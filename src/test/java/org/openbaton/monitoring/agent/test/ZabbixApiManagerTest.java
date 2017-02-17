@@ -78,7 +78,9 @@ public class ZabbixApiManagerTest {
               "{" + host + ":system.cpu.load[percpu,avg1].last(0)}>0.45",
               3);
       triggerIds.add(triggerId);
-      String actionId = zabbixApiManager.createAction("Test action for " + host, triggerId);
+      String mediaId = zabbixApiManager.getScriptUserMediaScript();
+      String mediatypeId = zabbixApiManager.getMediaTypeId(mediaId);
+      String actionId = zabbixApiManager.createAction("Test action for " + host, triggerId,mediatypeId);
       actionIds.add(actionId);
     }
   }
@@ -95,10 +97,11 @@ public class ZabbixApiManagerTest {
   public void actionAlreadyExistsTest() throws MonitoringException {
     thrown.expect(MonitoringException.class);
     thrown.expectMessage("Action \"Test action\" already exists");
-
-    String actionId = zabbixApiManager.createAction("Test action", "non-exitend");
+    String mediaId = zabbixApiManager.getScriptUserMediaScript();
+    String mediatypeId = zabbixApiManager.getMediaTypeId(mediaId);
+    String actionId = zabbixApiManager.createAction("Test action", "non-exitend",mediatypeId);
     actionIds.add(actionId);
-    actionId = zabbixApiManager.createAction("Test action", "non-exitend");
+    actionId = zabbixApiManager.createAction("Test action", "non-exitend",mediatypeId);
   }
 
   @Test
