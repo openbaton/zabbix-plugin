@@ -42,7 +42,7 @@ public class ZabbixApiManagerTest {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @BeforeClass
-  public static void init() throws IOException, MonitoringException {
+  public static void init() throws IOException, MonitoringException, InterruptedException {
     properties = new Properties();
     properties.load(ZabbixApiManagerTest.class.getResourceAsStream("/plugin.conf.properties"));
     if (properties.getProperty("external-properties-file") != null) {
@@ -59,30 +59,13 @@ public class ZabbixApiManagerTest {
             Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false")),
             properties.getProperty("user-zbx"),
             properties.getProperty("password-zbx"));
-    zabbixSender.authenticate(
-        "http://" + properties.getProperty("zabbix-host") + "/zabbix/api_jsonrpc.php",
-        properties.getProperty("user-zbx"),
-        properties.getProperty("password-zbx")); /* to force double authentication */
+    zabbixSender.authenticate();
     zabbixApiManager =
         new ZabbixApiManager(zabbixSender, properties.getProperty("zabbix-server-version", "3.0"));
     triggerIds = new ArrayList<>();
     actionIds = new ArrayList<>();
     prototypeIds = new ArrayList<>();
-  }
-
-  @Test
-  public void edgeCasesForInitTest() throws MonitoringException {
-    thrown.expect(MonitoringException.class);
-    thrown.expectMessage("Invalid params. Login name or password is incorrect.");
-
-    ZabbixSender zabbixSender =
-        new ZabbixSender(
-            properties.getProperty("zabbix-host"),
-            "80" /* explicit port-string */,
-            false,
-            properties.getProperty("user-zbx"),
-            properties.getProperty("Wrong Password"));
-    zabbixSender.authenticate();
+    Thread.sleep(3000);
   }
 
   @Test
@@ -95,7 +78,10 @@ public class ZabbixApiManagerTest {
               "{" + host + ":system.cpu.load[percpu,avg1].last(0)}>0.45",
               3);
       triggerIds.add(triggerId);
-      String actionId = zabbixApiManager.createAction("Test action for " + host, triggerId);
+      String mediaId = zabbixApiManager.getScriptUserMediaScript();
+      String mediatypeId = zabbixApiManager.getMediaTypeId(mediaId);
+      String actionId =
+          zabbixApiManager.createAction("Test action for " + host, triggerId, mediatypeId);
       actionIds.add(actionId);
     }
   }
@@ -112,10 +98,11 @@ public class ZabbixApiManagerTest {
   public void actionAlreadyExistsTest() throws MonitoringException {
     thrown.expect(MonitoringException.class);
     thrown.expectMessage("Action \"Test action\" already exists");
-
-    String actionId = zabbixApiManager.createAction("Test action", "non-exitend");
+    String mediaId = zabbixApiManager.getScriptUserMediaScript();
+    String mediatypeId = zabbixApiManager.getMediaTypeId(mediaId);
+    String actionId = zabbixApiManager.createAction("Test action", "non-exitend", mediatypeId);
     actionIds.add(actionId);
-    actionId = zabbixApiManager.createAction("Test action", "non-exitend");
+    actionId = zabbixApiManager.createAction("Test action", "non-exitend", mediatypeId);
   }
 
   @Test
@@ -151,5 +138,6 @@ public class ZabbixApiManagerTest {
     if (!prototypeIds.isEmpty()) {
       zabbixApiManager.deletePrototypeItems(prototypeIds);
     }
+    zabbixApiManager.destroy();
   }
 }
