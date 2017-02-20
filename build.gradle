@@ -70,6 +70,11 @@ mainClassName = 'org.openbaton.monitoring.agent.Starter'
 
 group 'org.openbaton'
 
+// excluding logback in order to use slf4j simple
+configurations {
+    all*.exclude group: 'ch.qos.logback', module: 'logback-classic'
+}
+
 dependencies {
     compile 'org.openbaton:plugin-sdk:' + openbatonVersion
     compile 'com.google.code.gson:gson:2.3.1'
