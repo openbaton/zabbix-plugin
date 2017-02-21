@@ -39,6 +39,7 @@ OPENBATON_COMPONENT_EXE_DIR=${OPENBATON_COMPONENT_BASE_DIR}/bin
 
 OPENBATON_BASE_CONFIG_DIR="/etc/openbaton"
 OPENBATON_COMPONENT_CONFIG_FILE="openbaton-${OPENBATON_COMPONENT_NAME}.properties"
+OPENBATON_NFVO_CONFIG_FILE="openbaton-nfvo.properties"
 
 OPENBATON_COMPONENT_AUTOSTART_DEFAULT=true
 OPENBATON_COMPONENT_AUTOSTART=${OPENBATON_COMPONENT_AUTOSTART:-$OPENBATON_COMPONENT_AUTOSTART_DEFAULT}
@@ -56,7 +57,7 @@ ZABBIX_USER_PASSWORD_DEFAULT=zabbix
 #### Open Baton ####
 ####################
 
-configure_zabbix_server () {
+configure_zabbix_plugin () {
     # In case of "noninteractive" FRONTEND the default value will remain valid (user: admin ; password: openbaton)
     if [ "${DEBIAN_FRONTEND}" != "Noninteractive" -a "${DEBIAN_FRONTEND}" != "noninteractive" ]; then
         read -p " * Please, provide the IP of the Zabbix plugin host [localhost]: " zabbix_plugin_ip
@@ -71,13 +72,16 @@ configure_zabbix_server () {
         stty echo
     fi
 
-    # Set the Zabbix Plugin IP
-    export zabbix_plugin_ip=${zabbix_plugin_ip:-$ZABBIX_PLUGIN_IP_DEFAULT}
+    # Set the Zabbix Plugin host IP
+    #export zabbix_plugin_ip=${zabbix_plugin_ip:-$ZABBIX_PLUGIN_IP_DEFAULT}
+    export zabbix_plugin_ip=${zabbix_plugin_ip}
     if [ -z ${zabbix_plugin_ip} ] ; then # The empty string is considered as unset
-        sed -i "s|zabbix-plugin-ip\s*=*|zabbix-plugin-ip=${zabbix_plugin_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
+        zabbix_plugin_ip=${ZABBIX_PLUGIN_IP_DEFAULT}
     fi
+    log_success_msg "Setting the ZABBIX plugin host IP: ${zabbix_plugin_ip}"
+    sed -i "s|zabbix-plugin-ip\s*=*|zabbix-plugin-ip=${zabbix_plugin_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 
-    # Set the zabbix server ip
+    # Set the Zabbix server IP
     export zabbix_server_ip=${zabbix_server_ip}
     if [ -z ${zabbix_server_ip} ] ; then # The empty string is considered as unset
         zabbix_server_ip=${ZABBIX_SERVER_IP_DEFAULT}
@@ -102,9 +106,22 @@ configure_zabbix_server () {
     sed -i "s|password-zbx\s*=\s*zabbix|password-zbx=${zabbix_user_password}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 }
 
+configure_nfvo () {
+    # Set the Zabbix Server IP in the NFVO "nfvo.monitoring.ip" property
+    if [ -f ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_NFVO_CONFIG_FILE} ]; then
+        zabbix_server_ip=$( awk '$0 ~ "zabbix-host[[:space:]]*="' "${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}" | awk -F'=' '{print $2}' )
+        if [ ! -z ${zabbix_server_ip+x} ] ; then # The empty string is considered as unset
+            log_success_msg "Setting Zabbix Server IP into NFVO: ${zabbix_server_ip}"
+            export zabbix_server_ip=${zabbix_server_ip}
+            sed -i "s|#nfvo.monitoring.ip\s*=.*|nfvo.monitoring.ip=${zabbix_server_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_NFVO_CONFIG_FILE}
+        fi
+    fi
+}
+
 configure () {
     log_success_msg "Configuring Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation .."
-    configure_zabbix_server
+    configure_zabbix_plugin
+    configure_nfvo
     chmod a+x ${OPENBATON_COMPONENT_EXE_DIR}/openbaton-${OPENBATON_COMPONENT_NAME}
     log_success_msg "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation completed"
 
