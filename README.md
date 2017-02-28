@@ -81,7 +81,7 @@ Once the prerequisites are met, you can clone the following project from git, co
 git clone https://github.com/openbaton/zabbix-plugin.git
 cd zabbix-plugin
 ./gradlew build -x test
-java -jar build/lib/zabbix-agent-<version>.jar
+java -jar build/lib/openbaton-plugin-monitoring-zabbix-<version>.jar
 ```
 
 ### Configuration
