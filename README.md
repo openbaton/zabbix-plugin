@@ -30,26 +30,16 @@ Some of the benefits introduced by the usage of such plugin:
 
 The prerequisites are:  
 
-- Zabbix server installed and running. See [how to configure Zabbix server][zabbix-server-configuration].
+- Zabbix server (2.2 or 3.0) installed and running. See [how to configure Zabbix server 2.2][zabbix-server-configuration].
 - RabbitMQ server installed and running  
 - Git installed
 - Gradle installed
 
+
 ## Additional Zabbix Server configuration required for receiving notifications
 
-How does zabbix-plugin receive notifications from the Zabbix Server? 
-
-When using the method createThreshold provided by the plugin, it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
-If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the informations of the threshold and sends them to a custom alertScript.
-The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the zabbix-plugin. 
-
-The zabbix-pluging waits for notifications at the url: http://zabbix-plugin-ip:defaultPort/defaultContext.
-
-Defatult context and ports are specified in the configuration file as: 
-* **notification-receiver-server-context**.
-* **notification-receiver-server-port**.
-
-The custom alert script we use is the following:  
+If you are going to use Open Baton FM system or you wish to use the createThreshold method, you need this additional configuration.  
+Create a script called "send_notification.sh" with the following content.
 
 ```bash
 #!/bin/bash
@@ -57,11 +47,31 @@ to=$1
 body=$3
 curl -X POST -H "Accept: application/json" -H "Content-Type: application/json" -d "$body" http://$to
 ```
-
-Copy this script in the directory defined in the Zabbix server configuration file as AlertScriptsPath variable.
 The variable 'to' is the endpoint where zabbix-plugin receives the notification (specified in **notification-receiver-server-context** property). 
-After you copied the script in the right directoy, the Zabbix server needs to be configured correctly in order to use [custom alertscripts][custom-alertscripts]. 
-This configuration will be automatized in later releases. 
+Copy the following script in the Zabbix Server machine. In particular, in a special directory defined in the Zabbix Server configuration file (/etc/zabbix/zabbix_server.conf) as AlertScriptsPath variable. If the value of the variable AlertScriptsPath is for example "/usr/lib/zabbix/alertscripts", 
+then copy the send_notification.sh script just created in that folder.  
+Once you are in the directory "/usr/lib/zabbix/alertscripts", add executable permissions to the script running the command:
+```bash
+sudo chmod +x send_notification.sh
+```
+
+*Note*: when you will use the method createThreshold, Zabbix Plugin will configure Zabbix Server automatically in order to use the script "send_notification.sh". 
+What it will try to do is the configuration at this page [custom alertscripts][custom-alertscripts]. 
+If for any reason this auto-configuration won't work, you will see in the Zabbix Plugin logs, then you should execute this configuration manually as explained in the Zabbix documentation.
+
+## Notification mechanism
+
+How does Zabbix plugin receive notifications from the Zabbix Server? 
+
+When using the method createThreshold provided by the plugin, it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
+If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the informations of the threshold and sends them to a custom alertScript.
+The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the Zabbix plugin. 
+
+Zabbix plugin waits for notifications at the url: http://zabbix-plugin-ip:defaultPort/defaultContext.
+
+Defatult context and ports are specified in the configuration file as: 
+* **notification-receiver-server-context**.
+* **notification-receiver-server-port**.
 
 ### Installation
 
@@ -70,56 +80,57 @@ Once the prerequisites are met, you can clone the following project from git, co
 ```bash  
 git clone https://github.com/openbaton/zabbix-plugin.git
 cd zabbix-plugin
-./gradlew build
+./gradlew build -x test
 java -jar build/lib/zabbix-agent-<version>.jar
 ```
 
 ### Configuration
 
-Create the path /etc/openbaton/plugins/monitoring with the command:
+If the prerequisites are met you should already have the folder "/etc/openbaton". Then copy the configuration file in src/main/resources/plugin.conf.properties to the path /etc/openbaton/ with the name openbaton-plugin-monitoring-zabbix.properties. Once you are inside the zabbix-plugin directory type this command:
 
 ```bash  
-mkdir -p /etc/openbaton/plugins/monitoring
-```
-
-Then copy the configuration file in src/main/resources/plugin.conf.properties to the path /etc/openbaton/plugins/monitoring/ with the name zabbix-plugin.conf. Once you are inside the zabbix-plugin directory type this command:
-
-```bash  
-cp src/main/resources/plugin.conf.properties /etc/openbaton/plugins/monitoring/zabbix-plugin.conf
+cp src/main/resources/plugin.conf.properties /etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 ```
 
 The configuration parameters are explained in the following table.
 
 | Parameter           | Description     | Default
 | ------------------- | --------------  | ----------
-| zabbix-host                           |  IP of the Zabbix Server      | not null
-| zabbix-port                           |  Port of the Zabbix Server    | can be empty
+| zabbix-plugin-ip                      |  IP of the Zabbix Plugin machine      | localhost
+| zabbix-host                           |  IP of the Zabbix Server      | localhost
+| zabbix-port                           |  Port of the Zabbix Server    | 
 | type                                  |  The type of the plugin       | zabbix-plugin
-| user-zbx                              |  User of the Zabbix Server    | 
-| password-zbx                          |  Password of Zabbix Server    |
-| client-request-frequency              |  Update cache period (Basically each time t, the zabbix plugin ask to every items value for all hosts and fill the local cache). Set 0 to disable it   | 15 (seconds)
+| user-zbx                              |  User of the Zabbix Server    | Admin
+| password-zbx                          |  Password of Zabbix Server    | zabbix
+| zabbix-server-version                 |  Zabbix Server version        | 3.0
+| client-request-frequency              |  Update cache period (Basically each time t, Zabbix Plugin ask to every items value for all hosts and fill the local cache). Set 0 to disable it   | 10 (seconds)
 | history-length                        |  How long is the history. If the client-request-frequency is 10 seconds and history-length 100, we have available the value of the items of the previous 1000 seconds. | 250
 | notification-receiver-server-context  |  Context where the zabbix-plugin receive the notifications by the zabbix server. (see the section 'How to configure Zabbix to get notifications') | /zabbixplugin/notifications 
 | notification-receiver-server-port     |  Port where the zabbix-plugin receive the notifications by the zabbix server. | 8010
-| external-properties-file              |  Full path of the configuration file.  | /etc/openbaton/plugins/zabbix-plugin.conf
+| external-properties-file              |  Full path of the configuration file.  | /etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 
 The configuration file should look like the one below:
 
 ```bash  
-zabbix-host=xxx.xxx.xxx.xxx
-zabbix-port=xxxxx
-type=zabbix-plugin
-user-zbx=<zabbix server user>
-password-zbx=<zabbix server password>
+## Zabbix Plugin
 
+zabbix-plugin-ip=localhost
 # Set client-request-frequency to 0 to disable the caching
+type=zabbix-plugin
 client-request-frequency=10
 history-length=250
-
 notification-receiver-server-context=/zabbixplugin/notifications
 notification-receiver-server-port=8010
+external-properties-file=/etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 
-external-properties-file=/etc/openbaton/plugins/monitoring/zabbix-plugin.conf
+## Zabbix Server info
+
+zabbix-host=localhost
+# zabbix-port=
+user-zbx=Admin
+password-zbx=zabbix
+# Supported Zabbix versions: 2.2 and 3.0
+zabbix-server-version=3.0
 ```
 
 
@@ -130,28 +141,44 @@ To import the plugin-sdk, please add in your gradle file the following dependenc
 
 ```
 repositories {
-       maven { url "http://get.openbaton.org:8081/nexus/content/groups/public/" }
+       maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+       maven { url 'https://oss.sonatype.org/content/repositories/releases/'  }
 }
 
 dependencies {
-    compile 'org.openbaton:plugin-sdk:2.1.0'
+    compile 'org.openbaton:monitoring:3.2.1-SNAPSHOT'
 }
 ```
 
 Then in your main, obtain the MonitoringPluginCaller as follow:
 
 ```java
-MonitoringPluginCaller monitoringPluginCaller=null;
-try {
-    monitoringPluginCaller = new MonitoringPluginCaller("zabbix","zabbix-plugin");
-} catch (TimeoutException e) {
-    e.printStackTrace();
-} catch (NotFoundException e) {
-    e.printStackTrace();
-} catch (IOException e) {
-    e.printStackTrace();
-}
+MonitoringPluginCaller monitoringPluginCaller = null;
+    try {
+      monitoringPluginCaller =
+          new MonitoringPluginCaller(
+              "localhost", "admin", "openbaton", 5601, "zabbix-plugin", "zabbix", "15672",120000);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (TimeoutException e) {
+      e.printStackTrace();
+    } catch (NotFoundException e) {
+      e.printStackTrace();
+    }
 ```
+
+Make sure to use the correct arguments' values. A description is provided in the following:  
+
+| Argument value      | Description     
+| ------------------- | --------------  
+| brokerIp            |  IP of RabbitMQ (broker)  
+| username            |  Username for RabbitMQ   
+| password            |  Password for RabbitMQ    
+| 5672                |  RabbitMQ default port (change it if needed)        
+| zabbix-plugin       |  Type of the Monitoring Plugin    
+| zabbix              |  Name of the Monitoring Plugin    
+| 15672               |  RabbitMQ default management port        
+| 120000               |  Timeout of the calls on the MonitoringPluginCaller        
 
 ## Functionalities provided by the Zabbix Plugin Interface 
 
@@ -186,7 +213,7 @@ This method create one or more items to be monitored in one or more hosts.
 
 **selector**: object to select the hosts in which we want to add the items.
 
-**performanceMetrics**: List of items. We can create items which are available in the [Zabbix documentation 2.2][zabbix-doc-2.2].
+**performanceMetrics**: List of items. We can create items which are available in the [Zabbix documentation 2.2][zabbix-doc-2.2] or [Zabbix documentation 3.0][zabbix-doc-3.0].
 
 **performanceMetricGroup**: pre-defined list of metrics. (NOT YET IMPLEMENTED, please pass an empty list of string).
 
@@ -236,7 +263,7 @@ This method get item values from one or more host. As a return value we get the 
 
 **hostnames**: list of hostnames which we want to know items values.
 
-**performanceMetrics**: List of items. We can get items which are available in: the [Zabbix documentation 2.2][zabbix-doc-2.2] and in the **hostnames**.
+**performanceMetrics**: List of items. We can get items which are available in: the [Zabbix documentation 2.2][zabbix-doc-2.2], [Zabbix documentation 3.0][zabbix-doc-3.0], and in the **hostnames**.
 
 **period**: period in seconds. If period is 0 than you get the last available value of the item. If > 0 you get the average of the values inside that period.
     Remember than the zabbix-plugin read all value of the all hosts every **client-request-frequency** (see the configuration section) and keep them in the history.
@@ -271,7 +298,7 @@ This method create a trigger on a specific item for one or more hosts. As a retu
 
 **thresholdDetails**: details of the threshold. It contains:
 
-- function: refer to [Zabbix trigger function 2.2][zabbix-trigger-function-2.2] 
+- function: refer to [Zabbix trigger function 2.2][zabbix-trigger-function-2.2] or [Zabbix documentation 3.0][zabbix-trigger-function-3.0] 
 - triggerOperator: operator
 - perceiverSeverity: severity of the trigger.
 - value: threshold value to compare with the actual value of the *performanceMetric*.
@@ -286,7 +313,7 @@ String thresholdId = zabbixMonitoringAgent.createThreshold(objectSelector,"net.t
 ```
 The trigger that will be created has this expression: {host-1:net.tcp.listen[5001].last(0)}=0|{host-2:net.tcp.listen[5001].last(0)}=0.
 It means that if host-1 OR host-2 have no more process listening on the port 5001 then create an alarm with severity critical.
-Refer to [Zabbix expression 2.2][zabbix-trigger-expression-2.2] to understand better the expression.
+Refer to [Zabbix expression 2.2][zabbix-trigger-expression-2.2] or [Zabbix expression 3.0][zabbix-trigger-expression-3.0] to understand better the expression.
 
 #### Delete Threshold
 ```java
@@ -430,7 +457,10 @@ The Open Baton project provides community support through the Open Baton Public 
 [tub-logo]: https://raw.githubusercontent.com/openbaton/openbaton.github.io/master/images/tu.png
 [zabbix-plugin-architecture]:img/zabbix-plugin-architecture.png
 [zabbix-doc-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/items/itemtypes/zabbix_agent
+[zabbix-doc-3.0]:https://www.zabbix.com/documentation/3.0/manual/config/items/itemtypes/zabbix_agent
 [zabbix-trigger-function-2.2]:https://www.zabbix.com/documentation/2.2/manual/appendix/triggers/functions
+[zabbix-trigger-function-3.0]:https://www.zabbix.com/documentation/3.0/manual/appendix/triggers/functions
 [zabbix-trigger-expression-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/triggers/expression
+[zabbix-trigger-expression-3.0]:https://www.zabbix.com/documentation/3.0/manual/config/triggers/expression
 [zabbix-server-configuration]:http://openbaton.github.io/documentation/zabbix-server-configuration/
 
