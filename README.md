@@ -157,7 +157,7 @@ MonitoringPluginCaller monitoringPluginCaller = null;
     try {
       monitoringPluginCaller =
           new MonitoringPluginCaller(
-              "localhost", "admin", "openbaton", 5601, "zabbix-plugin", "zabbix", "15672",120000);
+              "brokerIp", "username", "password", 5601, "zabbix-plugin", "zabbix", "15672",120000);
     } catch (IOException e) {
       e.printStackTrace();
     } catch (TimeoutException e) {
