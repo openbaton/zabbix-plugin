@@ -36,6 +36,9 @@ OPENBATON_COMPONENT_NAME=plugin-monitoring-zabbix
 
 OPENBATON_COMPONENT_JAR_FILE_NAME=openbaton-${OPENBATON_COMPONENT_NAME}
 
+OPENBATON_BASE_CONFIG_DIR=/etc/openbaton
+OPENBATON_COMPONENT_CONFIG_FILE=openbaton-${OPENBATON_COMPONENT_NAME}.properties
+
 
 ####################
 #### Open Baton ####
