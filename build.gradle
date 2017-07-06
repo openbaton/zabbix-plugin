@@ -87,5 +87,6 @@ dependencies {
 }
 
 apply from: 'gradle/gradle/packaging.plugin-monitoring-zabbix.debian.gradle'
+apply from: 'gradle/gradle/packaging.plugin-monitoring-zabbix.docker.gradle'
 
 compileJava.dependsOn tasks.googleJavaFormat
