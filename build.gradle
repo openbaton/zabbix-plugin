@@ -29,6 +29,7 @@ repositories {
 apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'spring-boot'
+apply plugin: 'docker'
 
 apply from: 'gradle/gradle/command.line.helper.gradle'
 apply from: 'gradle/gradle/git.helpers.gradle'

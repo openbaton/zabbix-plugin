@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-apply plugin: 'docker'
-
 ext {
     baseName = 'openbaton'
     componentName = "plugin-monitoring-zabbix"
@@ -32,7 +30,7 @@ task buildDocker(type: Docker) {
     runCommand('apk add -u --no-cache python py-pip &&' +
             'pip install supervisor &&' +
             'mkdir -p /var/log/openbaton')
-    addFile('gradle/gradle/scripts/supervisord.conf', '/etc/supervisord.conf')
+    addFile('gradle/gradle/scripts/docker/supervisord.conf', '/etc/supervisord.conf')
     addFile('src/main/resources/plugin.conf.properties', '/etc/openbaton/openbaton-plugin-monitoring-zabbix.properties')
     entryPoint(["supervisord", "--configuration", "/etc/supervisord.conf"])
     exposePort(8010)
