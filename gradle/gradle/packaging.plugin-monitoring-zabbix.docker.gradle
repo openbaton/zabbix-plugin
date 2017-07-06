@@ -15,26 +15,16 @@
  */
 apply plugin: 'docker'
 
-buildscript {
-    repositories { jcenter() }
-    dependencies {
-        classpath "se.transmode.gradle:gradle-docker:1.2"
-    }
-}
-
-
 ext {
     baseName = 'openbaton'
     componentName = "plugin-monitoring-zabbix"
-    versionName = "${version}".replaceAll("-SNAPSHOT", "")
-    baseBinaryDir = '/usr/lib/openbaton'
-    jarSubpathName = "plugins/monitoring".replaceAll("-", "/")
 }
 
 task buildDocker(type: Docker) {
     baseImage = 'openjdk:8-jre-alpine'
     push = project.hasProperty('push')
-    tag = "${baseName}/${componentName}:${versionName}"
+    tagVersion = "${version}".replaceAll("-SNAPSHOT", "")
+    tag = "${baseName}/${componentName}"
     addFile {
         from jar
         rename {'zbx.jar'}
@@ -47,4 +37,5 @@ task buildDocker(type: Docker) {
     entryPoint(["supervisord", "--configuration", "/etc/supervisord.conf"])
     exposePort(8010)
 }
+
 buildDocker.dependsOn(build)
