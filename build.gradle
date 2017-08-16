@@ -64,7 +64,7 @@ project.ext {
      * gradle Related Vars
      */
     mainClass = 'org.openbaton.monitoring.agent.Starter'
-    openbatonVersion = "4.0.0"
+    openbatonVersion = "4.0.1-SNAPSHOT"
     //------------------------------------------------//
 }
 
