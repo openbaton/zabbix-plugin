@@ -437,8 +437,7 @@ public class ZabbixApiManager {
       for (int i = 0; i < resultAr.size(); i++) {
         JsonObject interfaceInfoObj = resultAr.get(i).getAsJsonObject();
         if (interfaceInfoObj.get("type").getAsString().equals("1")
-            && interfaceInfoObj.get("port").getAsString().equals("10050")
-            && interfaceInfoObj.get("ip").getAsString().startsWith("192"))
+            && interfaceInfoObj.get("port").getAsString().equals("10050"))
           interfaceId = interfaceInfoObj.get("interfaceid").getAsString();
       }
     }
