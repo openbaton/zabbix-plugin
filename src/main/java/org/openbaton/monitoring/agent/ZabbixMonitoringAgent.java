@@ -281,7 +281,9 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     String zabbixServerVersion = properties.getProperty("zabbix-server-version", "3.0");
     zabbixPluginIp = properties.getProperty("zabbix-plugin-ip");
     Boolean zabbixSsl = Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false"));
-    zabbixSender = new ZabbixSender(zabbixHost, zabbixPort, zabbixSsl, username, password);
+    String zabbixEndpoint = properties.getProperty("zabbix-endpoint", "/zabbix/api_jsonrpc.php");
+    zabbixSender =
+        new ZabbixSender(zabbixHost, zabbixPort, zabbixEndpoint, zabbixSsl, username, password);
     zabbixSender.authenticate();
     zabbixApiManager = new ZabbixApiManager(zabbixSender, zabbixServerVersion);
     String nrsp = properties.getProperty("notification-receiver-server-port", "8010");

@@ -56,6 +56,7 @@ public class ZabbixApiManagerTest {
         new ZabbixSender(
             properties.getProperty("zabbix-host"),
             properties.getProperty("zabbix-port"),
+            properties.getProperty("zabbix-endpoint", "/zabbix/api_jsonrpc.php"),
             Boolean.parseBoolean(properties.getProperty("zabbix-ssl", "false")),
             properties.getProperty("user-zbx"),
             properties.getProperty("password-zbx"));

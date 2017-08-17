@@ -44,16 +44,21 @@ public class ZabbixSender implements RestSender {
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
   public ZabbixSender(
-      String zabbixHost, String zabbixPort, Boolean zabbixSsl, String username, String password) {
+      String zabbixHost,
+      String zabbixPort,
+      String zabbixEndpoint,
+      Boolean zabbixSsl,
+      String username,
+      String password) {
     this.zabbixHost = zabbixHost;
     this.username = username;
     this.password = password;
     String protocol = zabbixSsl ? "https://" : "http://";
 
     if (zabbixPort == null || zabbixPort.equals("")) {
-      zabbixURL = protocol + zabbixHost + "/zabbix/api_jsonrpc.php";
+      zabbixURL = protocol + zabbixHost + zabbixEndpoint;
     } else {
-      zabbixURL = protocol + zabbixHost + ":" + zabbixPort + "/zabbix/api_jsonrpc.php";
+      zabbixURL = protocol + zabbixHost + ":" + zabbixPort + zabbixEndpoint;
       this.zabbixPort = zabbixPort;
     }
   }

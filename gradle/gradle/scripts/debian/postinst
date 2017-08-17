@@ -37,14 +37,19 @@ OPENBATON_COMPONENT_NAME=plugin-monitoring-zabbix
 OPENBATON_COMPONENT_BASE_DIR=/usr
 OPENBATON_COMPONENT_EXE_DIR=${OPENBATON_COMPONENT_BASE_DIR}/bin
 
+OPENBATON_BASE_CONFIG_DIR=/etc/openbaton
+OPENBATON_COMPONENT_CONFIG_FILE=openbaton-${OPENBATON_COMPONENT_NAME}.properties
+OPENBATON_NFVO_CONFIG_FILE=openbaton-nfvo.properties
+
 OPENBATON_COMPONENT_AUTOSTART_DEFAULT=true
 OPENBATON_COMPONENT_AUTOSTART=${OPENBATON_COMPONENT_AUTOSTART:-$OPENBATON_COMPONENT_AUTOSTART_DEFAULT}
 
 DEBIAN_FRONTEND_DEFAULT=interactive
 DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-$DEBIAN_FRONTEND_DEFAULT}
 
+ZABBIX_PLUGIN_IP_DEFAULT=localhost
 ZABBIX_SERVER_IP_DEFAULT=localhost
-ZABBIX_USER_DEFAULT=admin
+ZABBIX_USER_DEFAULT=Admin
 ZABBIX_USER_PASSWORD_DEFAULT=zabbix
 
 
@@ -52,53 +57,123 @@ ZABBIX_USER_PASSWORD_DEFAULT=zabbix
 #### Open Baton ####
 ####################
 
-configure_zabbix_server () {
+configure_zabbix_plugin () {
     # In case of "noninteractive" FRONTEND the default value will remain valid (user: admin ; password: openbaton)
     if [ "${DEBIAN_FRONTEND}" != "Noninteractive" -a "${DEBIAN_FRONTEND}" != "noninteractive" ]; then
-        read -p "Enter the ZABBIX server IP [localhost]: " zabbix_server_ip
-        export zabbix_server_ip=${zabbix_server_ip}
+        read -p " * Please, provide the IP of the Zabbix plugin host [localhost]: " zabbix_plugin_ip
 
-        read -p "Enter the ZABBIX user [admin]: " zabbix_user
-        export zabbix_user=${zabbix_user}
+        read -p " * Please, provide the ZABBIX server IP [localhost]: " zabbix_server_ip
+
+        read -p " * Please, provide the ZABBIX user [Admin]: " zabbix_user
 
         # Turning echo on and off between password reading
         stty -echo
-        read -p "Provide the ZABBIX user's password [zabbix]: " zabbix_user_password ; echo
+        read -p " * Please, provide the ZABBIX user's password [zabbix]: " zabbix_user_password ; echo
         stty echo
-        export zabbix_user_password=${zabbix_user_password}
     fi
 
-    # Set the zabbix server ip
+    # Set the Zabbix Plugin host IP
+    export zabbix_plugin_ip=${zabbix_plugin_ip}
+    if [ -z ${zabbix_plugin_ip} ] ; then # The empty string is considered as unset
+        zabbix_plugin_ip=${ZABBIX_PLUGIN_IP_DEFAULT}
+    fi
+    log_success_msg "Setting the ZABBIX plugin host IP: ${zabbix_plugin_ip}"
+    sed -i "s|zabbix-plugin-ip\s*=.*|zabbix-plugin-ip=${zabbix_plugin_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
+
+    # Set the Zabbix server IP
+    export zabbix_server_ip=${zabbix_server_ip}
     if [ -z ${zabbix_server_ip} ] ; then # The empty string is considered as unset
         zabbix_server_ip=${ZABBIX_SERVER_IP_DEFAULT}
     fi
     log_success_msg "Setting the ZABBIX server IP: ${zabbix_server_ip}"
-    sed -i "s|zabbix-host\s*=\s*localhost|zabbix-host=${zabbix_server_ip}|g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+    sed -i "s|zabbix-host\s*=\s*localhost|zabbix-host=${zabbix_server_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 
     # Set the zabbix user
+    export zabbix_user=${zabbix_user}
     if [ -z ${zabbix_user} ] ; then # The empty string is considered as unset
         zabbix_user=${ZABBIX_USER_DEFAULT}
     fi
     log_success_msg "Setting the ZABBIX user: ${zabbix_user}"
-    sed -i "s|user-zbx\s*=\s*admin|user-zbx=${zabbix_user}|g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+    sed -i "s|user-zbx\s*=\s*admin|user-zbx=${zabbix_user}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 
     # Set the zabbix user's password
+    export zabbix_user_password=${zabbix_user_password}
     if [ -z ${zabbix_user_password} ] ; then # The empty string is considered as unset
         zabbix_user_password=${ZABBIX_USER_PASSWORD_DEFAULT}
     fi
     log_success_msg "Setting the ZABBIX user's password: ${zabbix_user_password}"
-    sed -i "s|password-zbx\s*=\s*zabbix|password-zbx=${zabbix_user_password}|g" /etc/openbaton/openbaton-${OPENBATON_COMPONENT_NAME}.properties
+    sed -i "s|password-zbx\s*=\s*zabbix|password-zbx=${zabbix_user_password}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 }
 
-configure () {
+configure_nfvo () {
+    # Set the Zabbix Server IP in the NFVO "nfvo.monitoring.ip" property
+    if [ -f ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_NFVO_CONFIG_FILE} ]; then
+        zabbix_server_ip=$( awk '$0 ~ "zabbix-host[[:space:]]*="' "${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}" | awk -F'=' '{print $2}' )
+        if [ ! -z ${zabbix_server_ip+x} ] ; then # The empty string is considered as unset
+            log_success_msg "Setting Zabbix Server IP into NFVO: ${zabbix_server_ip}"
+            export zabbix_server_ip=${zabbix_server_ip}
+            sed -i "s|#nfvo.monitoring.ip\s*=.*|nfvo.monitoring.ip=${zabbix_server_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_NFVO_CONFIG_FILE}
+        fi
+    fi
+}
+
+configure_new_installation () {
     log_success_msg "Configuring Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation .."
-    configure_zabbix_server
+    configure_zabbix_plugin
+    configure_nfvo
     chmod a+x ${OPENBATON_COMPONENT_EXE_DIR}/openbaton-${OPENBATON_COMPONENT_NAME}
     log_success_msg "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation completed"
+}
 
+configure_for_upgrade () {
+    ## Procedure to merge old and new properties files ##
+
+    # The old properties file is copied in /tmp before this upgrade procedure is executed (see 'prerm' file)
+    cp /tmp/${OPENBATON_COMPONENT_CONFIG_FILE} /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old
+    cp ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE} /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new
+
+    # Extract the properties keys from the old properties file
+    awk -F'=' '{if($0 ~ "=") {print $1 "="}}' /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old > /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old_keys
+    sed -i s/\#//g /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old_keys
+    sed -i s/\ //g /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old_keys
+
+    # Extract the properties keys from the new properties file
+    awk -F'=' '{if($0 ~ "=") {print $1 "="}}' /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new > /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new_keys
+    sed -i s/\#//g /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new_keys
+    sed -i s/\ //g /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new_keys
+
+    # Extract the common properties keys between the old and new properties files
+    grep -Fwf /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new_keys /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old_keys > /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.common_keys
+
+    # Extract the all line from the old property file for each common properties key
+    sed -i s/=//g /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new_keys
+    grep -Fwf /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new_keys /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.old      > /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.common_keys_old_lines
+
+    # For each common key overwrite the old property value in the new properties file
+    exec 3</tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.common_keys
+    exec 4</tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.common_keys_old_lines
+    while IFS='' read -r key <&3 && read -r line <&4; do
+        key=$(echo $key | awk -F'=' '{print $1}')
+        sed -i "s|.*${key}\s*=.*|${line}|" /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new
+    done
+    exec 3<&-
+    exec 4<&-
+
+    # Overwrite the new properties file with the 'upgraded' new properties file
+    mv /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}.new ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
+
+    # Clear tmp files used for upgrade
+    rm /tmp/${OPENBATON_COMPONENT_CONFIG_FILE}*
+
+    log_success_msg "Upgrading Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} installation .."
+}
+
+start_component () {
     # Allow the use of the .deb package to install the Open Baton Component with Docker (the Docker file developer need to manage the starting of the Component in the Docker file) 
     if [ "${OPENBATON_COMPONENT_AUTOSTART}" = "true" ]; then
         if systemctl start openbaton-${OPENBATON_COMPONENT_NAME}.service >/dev/null 2>&1 ; then
+            log_success_msg "Starting the Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} .."
+        elif service openbaton-${OPENBATON_COMPONENT_NAME} start >/dev/null 2>&1 ; then
             log_success_msg "Starting the Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} .."
         elif start openbaton-${OPENBATON_COMPONENT_NAME} >/dev/null 2>&1 ; then
             log_success_msg "Starting the Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} .."
@@ -108,4 +183,29 @@ configure () {
     fi
 }
 
-configure
+
+##############
+#### Main ####
+##############
+
+case "${1}" in
+    configure)
+        if [ "${2}" = "" ]; then # new installation (during first installation the postinst file is invoked as: 'postinst configure')
+            configure_new_installation
+        else # upgrade (during upgrade the postinst file is invoked as: 'postinst configure <old_version_number>')
+            configure_for_upgrade
+        fi
+        ;;
+
+    remove|purge|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+
+    *)
+        log_failure_msg "postinst called with unknown argument ${1}"
+        exit 1
+        ;;
+esac
+
+start_component
+
+exit 0
