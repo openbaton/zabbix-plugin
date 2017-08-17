@@ -35,6 +35,20 @@ The prerequisites are:
 - Git installed
 - Gradle installed
 
+## Set up environment
+
+Create and give the right permissions to the folder which will host the configuration file:
+ 
+```bash
+sudo mkdir -p /etc/openbaton
+sudo chwon -R $USER: /etc/openbaton
+```
+
+The Zabbix Plugin logs in the file /var/log/openbaton/openbaton-plugin-monitoring-zabbix.log at default. Create and give the right permissions in that folder running the command:
+```bash
+sudo mkdir -p /var/log/openbaton
+sudo chwon -R $USER: /var/log/openbaton
+```
 
 ## Additional Zabbix Server configuration required for receiving notifications
 
@@ -81,14 +95,13 @@ Once the prerequisites are met, you can clone the following project from git, co
 git clone https://github.com/openbaton/zabbix-plugin.git
 cd zabbix-plugin
 ./gradlew build -x test
-java -jar build/lib/openbaton-plugin-monitoring-zabbix-<version>.jar
 ```
 
 ### Configuration
 
-If the prerequisites are met you should already have the folder "/etc/openbaton". Then copy the configuration file in src/main/resources/plugin.conf.properties to the path /etc/openbaton/ with the name openbaton-plugin-monitoring-zabbix.properties. Once you are inside the zabbix-plugin directory type this command:
+Once you are inside the zabbix-plugin directory type this command:
 
-```bash  
+```bash
 cp src/main/resources/plugin.conf.properties /etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 ```
 
@@ -97,17 +110,17 @@ The configuration parameters are explained in the following table.
 | Parameter           | Description     | Default
 | ------------------- | --------------  | ----------
 | zabbix-plugin-ip                      |  IP of the Zabbix Plugin machine      | localhost
-| zabbix-host                           |  IP of the Zabbix Server      | localhost
-| zabbix-port                           |  Port of the Zabbix Server    | 
 | type                                  |  The type of the plugin       | zabbix-plugin
-| user-zbx                              |  User of the Zabbix Server    | Admin
-| password-zbx                          |  Password of Zabbix Server    | zabbix
-| zabbix-server-version                 |  Zabbix Server version        | 3.0
 | client-request-frequency              |  Update cache period (Basically each time t, Zabbix Plugin ask to every items value for all hosts and fill the local cache). Set 0 to disable it   | 10 (seconds)
 | history-length                        |  How long is the history. If the client-request-frequency is 10 seconds and history-length 100, we have available the value of the items of the previous 1000 seconds. | 250
 | notification-receiver-server-context  |  Context where the zabbix-plugin receive the notifications by the zabbix server. (see the section 'How to configure Zabbix to get notifications') | /zabbixplugin/notifications 
 | notification-receiver-server-port     |  Port where the zabbix-plugin receive the notifications by the zabbix server. | 8010
 | external-properties-file              |  Full path of the configuration file.  | /etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
+| zabbix-host                           |  IP of the Zabbix Server      | localhost
+| zabbix-port                           |  Port of the Zabbix Server    | 
+| user-zbx                              |  User of the Zabbix Server    | Admin
+| password-zbx                          |  Password of Zabbix Server    | zabbix
+| zabbix-server-version                 |  Zabbix Server version        | 3.0
 
 The configuration file should look like the one below:
 
@@ -133,11 +146,19 @@ password-zbx=zabbix
 zabbix-server-version=3.0
 ```
 
+## Run the Zabbix Plugin
+
+Simply run the jar with:
+
+```bash
+java -jar build/lib/openbaton-plugin-monitoring-zabbix-<version>.jar
+```
+Check the logs in /var/log/openbaton/openbaton-plugin-monitoring-zabbix.log
 
 ## Using it via MonitoringPluginCaller
 
 In order to use the MonitorPluginCaller you need to import the relative plugin-sdk, coming from [Openbaton][openbaton-website] project.
-To import the plugin-sdk, please add in your gradle file the following dependencies:
+To import the plugin-sdk, please add in your Gradle file the following dependencies:
 
 ```
 repositories {
@@ -146,7 +167,7 @@ repositories {
 }
 
 dependencies {
-    compile 'org.openbaton:monitoring:3.2.1-SNAPSHOT'
+    compile 'org.openbaton:monitoring:4.0.0'
 }
 ```
 
@@ -157,23 +178,25 @@ MonitoringPluginCaller monitoringPluginCaller = null;
     try {
       monitoringPluginCaller =
           new MonitoringPluginCaller(
-              "brokerIp", "username", "password", 5601, "zabbix-plugin", "zabbix", "15672",120000);
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (TimeoutException e) {
-      e.printStackTrace();
-    } catch (NotFoundException e) {
+              rabbitmqIp,
+              rabbitmqUsr,
+              rabbitmqPwd,
+              5672,
+              "zabbix-plugin",
+              "zabbix",
+              "15672",
+              120000);
+    } catch (Exception e) {
       e.printStackTrace();
     }
 ```
-
 Make sure to use the correct arguments' values. A description is provided in the following:  
 
 | Argument value      | Description     
 | ------------------- | --------------  
-| brokerIp            |  IP of RabbitMQ (broker)  
-| username            |  Username for RabbitMQ   
-| password            |  Password for RabbitMQ    
+| rabbitmqIp          |  IP of RabbitMQ (broker)  
+| rabbitmqUsr         |  Username for RabbitMQ   
+| rabbitmqPwd         |  Password for RabbitMQ    
 | 5672                |  RabbitMQ default port (change it if needed)        
 | zabbix-plugin       |  Type of the Monitoring Plugin    
 | zabbix              |  Name of the Monitoring Plugin    
