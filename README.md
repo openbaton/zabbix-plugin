@@ -18,19 +18,16 @@ In particular with the Zabbix plugin you can create/delete items, trigger and ac
 ![Zabbix plugin architecture][zabbix-plugin-architecture]
 
 Some of the benefits introduced by the usage of such plugin: 
-1) Make the consumers (NFVO, VNFM) indipendent to the monitoring system.  
+1) Make the consumers (NFVO, VNFM) independent to the monitoring system.  
 2) The communication between the consumers and zabbix-plugin is JSON based, so the consumers can be written in any languages.  
-3) The values of the items are cached and updated periodically in order to avoid to contact the zabbix server each time a specific metric is required.
+3) The values of the items are cached and updated periodically in order to avoid to contact the Zabbix Server each time a specific metric is required.
 4) If your consumer is written in java, we provide a simple class MonitoringPluginCaller which handle the communication via RabbitMQ.
 
-
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 The prerequisites are:  
 
-- Zabbix server (2.2 or 3.0) installed and running. See [how to configure Zabbix server 2.2][zabbix-server-configuration].
+- Zabbix server (2.2 or 3.0) installed and running. See [how to configure Zabbix server 2.2][zabbix-server-configuration-2.2] or [Zabbix server 3.0][zabbix-server-configuration-3.0].
 - RabbitMQ server installed and running  
 - Git installed
 - Gradle installed
@@ -44,7 +41,7 @@ sudo mkdir -p /etc/openbaton
 sudo chwon -R $USER: /etc/openbaton
 ```
 
-The Zabbix Plugin logs in the file /var/log/openbaton/openbaton-plugin-monitoring-zabbix.log at default. Create and give the right permissions in that folder running the command:
+The Zabbix Plugin logs at default in the file **/var/log/openbaton/openbaton-plugin-monitoring-zabbix.log**. Create and give the right permissions in that folder running the command:
 ```bash
 sudo mkdir -p /var/log/openbaton
 sudo chwon -R $USER: /var/log/openbaton
@@ -485,5 +482,7 @@ The Open Baton project provides community support through the Open Baton Public 
 [zabbix-trigger-function-3.0]:https://www.zabbix.com/documentation/3.0/manual/appendix/triggers/functions
 [zabbix-trigger-expression-2.2]:https://www.zabbix.com/documentation/2.2/manual/config/triggers/expression
 [zabbix-trigger-expression-3.0]:https://www.zabbix.com/documentation/3.0/manual/config/triggers/expression
-[zabbix-server-configuration]:http://openbaton.github.io/documentation/zabbix-server-configuration/
+[zabbix-server-configuration-2.2]:http://openbaton.github.io/documentation/zabbix-server-configuration/
+[zabbix-server-configuration-3.0]:zabbix-server-configuration-3.0.md
+
 
