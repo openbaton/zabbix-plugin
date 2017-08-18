@@ -25,7 +25,7 @@ public class Starter {
 
   public static void main(String[] args)
       throws IOException, InstantiationException, TimeoutException, IllegalAccessException,
-          InvocationTargetException, NoSuchMethodException {
+          InvocationTargetException, NoSuchMethodException, InterruptedException {
     Logger log = LoggerFactory.getLogger(Starter.class);
     if (args.length == 4) {
       PluginStarter.registerPlugin(
