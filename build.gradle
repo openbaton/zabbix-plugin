@@ -73,8 +73,11 @@ mainClassName = 'org.openbaton.monitoring.agent.Starter'
 group 'org.openbaton'
 
 // excluding logback in order to use slf4j simple
+//configurations {
+//    all*.exclude group: 'ch.qos.logback', module: 'logback-classic'
+//}
 configurations {
-    all*.exclude group: 'ch.qos.logback', module: 'logback-classic'
+    all*.exclude group: "org.slf4j", module: "slf4j-simple"
 }
 
 dependencies {
