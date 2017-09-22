@@ -27,7 +27,6 @@ repositories {
 }
 
 apply plugin: 'java'
-apply plugin: 'maven'
 apply plugin: 'spring-boot'
 apply plugin: 'docker'
 
