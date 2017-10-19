@@ -22,7 +22,7 @@ public class StarterTest {
   @Ignore
   public void startAndStopStarterTest()
       throws IllegalAccessException, IOException, InstantiationException, TimeoutException,
-          NoSuchMethodException, InvocationTargetException {
+          NoSuchMethodException, InvocationTargetException, InterruptedException {
     Starter.main(new String[] {""});
     Starter.main(new String[] {"zabbix", "localhost", "5672", "1"});
   }
@@ -31,7 +31,7 @@ public class StarterTest {
   @Ignore
   public void wrongParameterCountStarterTest()
       throws IllegalAccessException, IOException, InstantiationException, TimeoutException,
-          NoSuchMethodException, InvocationTargetException {
+          NoSuchMethodException, InvocationTargetException, InterruptedException {
     Starter.main(new String[] {"garbage here", "and here"});
   }
 
