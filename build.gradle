@@ -63,7 +63,7 @@ project.ext {
      * gradle Related Vars
      */
     mainClass = 'org.openbaton.monitoring.agent.Starter'
-    openbatonVersion = "4.0.1-SNAPSHOT"
+    openbatonVersion = "5.0.0-RC1"
     //------------------------------------------------//
 }
 
@@ -71,10 +71,6 @@ mainClassName = 'org.openbaton.monitoring.agent.Starter'
 
 group 'org.openbaton'
 
-// excluding logback in order to use slf4j simple
-//configurations {
-//    all*.exclude group: 'ch.qos.logback', module: 'logback-classic'
-//}
 configurations {
     all*.exclude group: "org.slf4j", module: "slf4j-simple"
 }
