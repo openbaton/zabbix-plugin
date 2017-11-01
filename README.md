@@ -75,7 +75,7 @@ If for any reason this auto-configuration won't work, you will see in the Zabbix
 How does Zabbix plugin receive notifications from the Zabbix Server? 
 
 When using the method createThreshold provided by the plugin, it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
-If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the informations of the threshold and sends them to a custom alertScript.
+If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the information of the threshold and sends them to a custom alertScript.
 The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the Zabbix plugin. 
 
 Zabbix plugin waits for notifications at the url: http://zabbix-plugin-ip:8010/zabbixplugin/notifications.
@@ -152,7 +152,7 @@ Simply run the jar with:
 ```bash
 java -jar build/lib/openbaton-plugin-monitoring-zabbix-<version>.jar
 ```
-Check the logs in /var/log/openbaton/openbaton-plugin-monitoring-zabbix.log
+Check out the logs in /var/log/openbaton/openbaton-plugin-monitoring-zabbix.log
 
 ## Using it via MonitoringPluginCaller
 
