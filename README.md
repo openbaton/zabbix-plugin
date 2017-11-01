@@ -78,11 +78,13 @@ When using the method createThreshold provided by the plugin, it automatically c
 If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the informations of the threshold and sends them to a custom alertScript.
 The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the Zabbix plugin. 
 
-Zabbix plugin waits for notifications at the url: http://zabbix-plugin-ip:defaultPort/defaultContext.
+Zabbix plugin waits for notifications at the url: http://zabbix-plugin-ip:8010/zabbixplugin/notifications.
 
-Defatult context and ports are specified in the configuration file as: 
-* **notification-receiver-server-context**.
-* **notification-receiver-server-port**.
+Default context and ports are specified in the configuration file as: 
+```properties
+notification-receiver-server-context=/zabbixplugin/notifications
+notification-receiver-server-port=8010
+```
 
 ### Installation
 
