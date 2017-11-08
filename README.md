@@ -11,9 +11,9 @@ This project contains an implementation of a plugin for integrating Open Baton w
 ![Zabbix plugin architecture][zabbix-plugin-architecture]
 
 Some of the benefits introduced by the usage of such plugin: 
-1) Make the consumers (NFVO, VNF managers, Fault Management System, AutoScaling Engine) independent to the monitoring system.  
-2) The communication between the consumers and Zabbix Plugin is JSON based, so the consumers can be written in any languages.  
-3) The values of the items are cached and updated periodically in order to avoid to contact the Zabbix Server each time a specific metric is required.
+* Make the consumers (NFVO, VNF managers, Fault Management System, AutoScaling Engine) independent to the monitoring system.  
+* The communication between the consumers and Zabbix Plugin is JSON based, so the consumers can be written in any languages.  
+* The values of the items are cached and updated periodically in order to avoid to contact the Zabbix Server each time a specific metric is required.
 
 ## Prerequisites
 
