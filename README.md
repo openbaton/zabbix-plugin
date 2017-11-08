@@ -4,33 +4,24 @@
   Licensed under [Apache v2 License](http://www.apache.org/licenses/LICENSE-2.0).
 
 
-# Zabbix plugin
+# Open Baton Zabbix Plugin
 
-Zabbix plugin is an open source project providing a reference implementation of two interfaces of the VIM, based on the ETSI [NFV MANO] specification.
-
-The two interfaces are:
--   VirtualisedResourceFaultManagement
--   VirtualisedResourcePerformanceManagement
-
-A detailed description of the interfaces is in the last ETSI Draft [IFA005_Or-Vi_ref_point_Spec].  
-In particular with the Zabbix plugin you can create/delete items, trigger and action on-demand. 
+This project contains an implementation of a plugin for integrating Open Baton with Zabbix Server, as shown in the figure below.
 
 ![Zabbix plugin architecture][zabbix-plugin-architecture]
 
 Some of the benefits introduced by the usage of such plugin: 
-1) Make the consumers (NFVO, VNFM) independent to the monitoring system.  
-2) The communication between the consumers and zabbix-plugin is JSON based, so the consumers can be written in any languages.  
+1) Make the consumers (NFVO, VNF managers, Fault Management System, AutoScaling Engine) independent to the monitoring system.  
+2) The communication between the consumers and Zabbix Plugin is JSON based, so the consumers can be written in any languages.  
 3) The values of the items are cached and updated periodically in order to avoid to contact the Zabbix Server each time a specific metric is required.
-4) If your consumer is written in java, we provide a simple class MonitoringPluginCaller which handle the communication via RabbitMQ.
 
 ## Prerequisites
 
 The prerequisites are:  
 
+- Open Baton NFVO up and running
 - Zabbix server (2.2 or 3.0) installed and running. See [how to configure Zabbix server 2.2][zabbix-server-configuration-2.2] or [Zabbix server 3.0][zabbix-server-configuration-3.0].
-- RabbitMQ server installed and running  
 - Git installed
-- Gradle installed
 
 ## Set up environment
 
@@ -47,48 +38,9 @@ sudo mkdir -p /var/log/openbaton
 sudo chwon -R $USER: /var/log/openbaton
 ```
 
-## Additional Zabbix Server configuration required for receiving notifications
+## Installation
 
-If you are going to use Open Baton FM system or you wish to use the createThreshold method, you need this additional configuration.  
-Create a script called "send_notification.sh" with the following content.
-
-```bash
-#!/bin/bash
-to=$1
-body=$3
-curl -X POST -H "Accept: application/json" -H "Content-Type: application/json" -d "$body" http://$to
-```
-The variable 'to' is the endpoint where zabbix-plugin receives the notification (specified in **notification-receiver-server-context** property). 
-Copy the following script in the Zabbix Server machine. In particular, in a special directory defined in the Zabbix Server configuration file (/etc/zabbix/zabbix_server.conf) as AlertScriptsPath variable. If the value of the variable AlertScriptsPath is for example "/usr/lib/zabbix/alertscripts", 
-then copy the send_notification.sh script just created in that folder.  
-Once you are in the directory "/usr/lib/zabbix/alertscripts", add executable permissions to the script running the command:
-```bash
-sudo chmod +x send_notification.sh
-```
-
-*Note*: when you will use the method createThreshold, Zabbix Plugin will configure Zabbix Server automatically in order to use the script "send_notification.sh". 
-What it will try to do is the configuration at this page [custom alertscripts][custom-alertscripts]. 
-If for any reason this auto-configuration won't work, you will see in the Zabbix Plugin logs, then you should execute this configuration manually as explained in the Zabbix documentation.
-
-## Notification mechanism
-
-How does Zabbix plugin receive notifications from the Zabbix Server? 
-
-When using the method createThreshold provided by the plugin, it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
-If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the information of the threshold and sends them to a custom alertScript.
-The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the Zabbix plugin. 
-
-Zabbix plugin waits for notifications at the url: http://zabbix-plugin-ip:8010/zabbixplugin/notifications.
-
-Default context and ports are specified in the configuration file as: 
-```properties
-notification-receiver-server-context=/zabbixplugin/notifications
-notification-receiver-server-port=8010
-```
-
-### Installation
-
-Once the prerequisites are met, you can clone the following project from git, compile it using gradle and launch it:  
+Once the prerequisites are met, you can clone the following project from git and compile it:  
 
 ```bash  
 git clone https://github.com/openbaton/zabbix-plugin.git
@@ -96,7 +48,7 @@ cd zabbix-plugin
 ./gradlew build -x test
 ```
 
-### Configuration
+## Configuration
 
 Once you are inside the zabbix-plugin directory type this command:
 
@@ -145,6 +97,30 @@ password-zbx=zabbix
 zabbix-server-version=3.0
 ```
 
+## Additional Zabbix Server configuration required for receiving notifications
+
+If you are going to use Open Baton FM System or you wish to use the createThreshold method, you need this additional configuration.  
+Create a script called "send_notification.sh" with the following content.
+
+```bash
+#!/bin/bash
+to=$1
+body=$3
+curl -X POST -H "Accept: application/json" -H "Content-Type: application/json" -d "$body" http://$to
+```
+The variable 'to' is the endpoint where Zabbix Plugin receives the notification (specified in **notification-receiver-server-context** property). 
+Copy the following script in the Zabbix Server machine. In particular, in a special directory defined in the Zabbix Server configuration file (/etc/zabbix/zabbix_server.conf) as AlertScriptsPath variable. 
+If the value of the variable AlertScriptsPath is for example "/usr/lib/zabbix/alertscripts", 
+then copy the send_notification.sh script just created in that folder.  
+Once you are in the directory "/usr/lib/zabbix/alertscripts", add executable permissions to the script running the command:
+```bash
+sudo chmod +x send_notification.sh
+```
+
+*Note*: when you will use the method createThreshold, Zabbix Plugin will configure Zabbix Server automatically in order to use the script "send_notification.sh". 
+What it will try to do is the configuration at this page [custom alertscripts][custom-alertscripts]. 
+If for any reason this auto-configuration won't work, you will see in the Zabbix Plugin logs, then you should execute this configuration manually as explained in the Zabbix documentation.
+
 ## Run the Zabbix Plugin
 
 Simply run the jar with:
@@ -153,6 +129,23 @@ Simply run the jar with:
 java -jar build/lib/openbaton-plugin-monitoring-zabbix-<version>.jar
 ```
 Check out the logs in /var/log/openbaton/openbaton-plugin-monitoring-zabbix.log
+
+
+## Notification mechanism
+
+How does Zabbix Plugin receives notifications from the Zabbix Server? 
+
+When using the method createThreshold provided by the plugin, it automatically creates an [action][action-zabbix] executed when the specific condition is met. 
+If the threshold is crossed (the status of the trigger goes from OK to PROBLEM or viceversa) the action is performed. The action gets the information of the threshold and sends them to a custom alertScript.
+The custom alertscripts is executed on the Zabbix Server and its task is to send the information received from the action to the Zabbix plugin. 
+
+Zabbix plugin waits for notifications at the url: http://zabbix-plugin-ip:8010/zabbixplugin/notifications.
+
+Default context and ports are specified in the configuration file as: 
+```properties
+notification-receiver-server-context=/zabbixplugin/notifications
+notification-receiver-server-port=8010
+```
 
 ## Using it via MonitoringPluginCaller
 
@@ -166,7 +159,7 @@ repositories {
 }
 
 dependencies {
-    compile 'org.openbaton:monitoring:4.0.0'
+    compile 'org.openbaton:monitoring:5.0.0'
 }
 ```
 
@@ -231,7 +224,7 @@ Make sure to use the correct arguments' values. A description is provided in the
 ```java
 String createPMJob(ObjectSelection selector, List<String> performanceMetrics, List<String> performanceMetricGroup, Integer collectionPeriod,Integer reportingPeriod) throws MonitoringException;
 ```
-This method create one or more items to be monitored in one or more hosts.
+This method creates one or more items to be monitored in one or more hosts.
 
 **selector**: object to select the hosts in which we want to add the items.
 
