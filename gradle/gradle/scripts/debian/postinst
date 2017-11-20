@@ -44,7 +44,7 @@ OPENBATON_NFVO_CONFIG_FILE=openbaton-nfvo.properties
 OPENBATON_COMPONENT_AUTOSTART_DEFAULT=true
 OPENBATON_COMPONENT_AUTOSTART=${OPENBATON_COMPONENT_AUTOSTART:-$OPENBATON_COMPONENT_AUTOSTART_DEFAULT}
 
-DEBIAN_FRONTEND_DEFAULT=interactive
+DEBIAN_FRONTEND_DEFAULT=dialog
 DEBIAN_FRONTEND=${DEBIAN_FRONTEND:-$DEBIAN_FRONTEND_DEFAULT}
 
 ZABBIX_PLUGIN_IP_DEFAULT=localhost
@@ -60,49 +60,58 @@ ZABBIX_USER_PASSWORD_DEFAULT=zabbix
 configure_zabbix_plugin () {
     # In case of "noninteractive" FRONTEND the default value will remain valid (user: admin ; password: openbaton)
     if [ "${DEBIAN_FRONTEND}" != "Noninteractive" -a "${DEBIAN_FRONTEND}" != "noninteractive" ]; then
-        read -p " * Please, provide the IP of the Zabbix plugin host [localhost]: " zabbix_plugin_ip
+        zabbix_plugin_ip=$(whiptail --inputbox "\nEnter the Zabbix plugin host IP:" 8 140 localhost --title "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} configuration" 3>&1 1>&2 2>&3)
+        exit_status="$?"
+        if [ ${exit_status} != 0 ]; then
+            echo ""
+            log_warning_msg "Aborting Open Baton installation"
+            exit 1
+        fi
 
-        read -p " * Please, provide the ZABBIX server IP [localhost]: " zabbix_server_ip
+        zabbix_server_ip=$(whiptail --inputbox "\nEnter the Zabbix server IP:" 8 140 localhost --title "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} configuration" 3>&1 1>&2 2>&3)
+        exit_status="$?"
+        if [ ${exit_status} != 0 ]; then
+            echo ""
+            log_warning_msg "Aborting Open Baton installation"
+            exit 1
+        fi
 
-        read -p " * Please, provide the ZABBIX user [Admin]: " zabbix_user
+        zabbix_user=$(whiptail --inputbox "\nEnter the Zabbix user:" 8 140 Admin --title "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} configuration" 3>&1 1>&2 2>&3)
+        exit_status="$?"
+        if [ ${exit_status} != 0 ]; then
+            echo ""
+            log_warning_msg "Aborting Open Baton installation"
+            exit 1
+        fi
 
-        # Turning echo on and off between password reading
-        stty -echo
-        read -p " * Please, provide the ZABBIX user's password [zabbix]: " zabbix_user_password ; echo
-        stty echo
+        zabbix_user_password=$(whiptail --passwordbox "\nProvide the password for the Zabbix '${zabbix_user}' user:" 8 140 zabbix --title "Open Baton ${OPENBATON_COMPONENT_NAME_FANCY} configuration" 3>&1 1>&2 2>&3)
+        exit_status="$?"
+        if [ ${exit_status} != 0 ]; then
+            echo ""
+            log_warning_msg "Aborting Open Baton installation"
+            exit 1
+        fi
     fi
 
     # Set the Zabbix Plugin host IP
-    export zabbix_plugin_ip=${zabbix_plugin_ip}
-    if [ -z ${zabbix_plugin_ip} ] ; then # The empty string is considered as unset
-        zabbix_plugin_ip=${ZABBIX_PLUGIN_IP_DEFAULT}
-    fi
+    export zabbix_plugin_ip=${zabbix_plugin_ip:-$ZABBIX_PLUGIN_IP_DEFAULT}
     log_success_msg "Setting the ZABBIX plugin host IP: ${zabbix_plugin_ip}"
     sed -i "s|zabbix-plugin-ip\s*=.*|zabbix-plugin-ip=${zabbix_plugin_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 
     # Set the Zabbix server IP
-    export zabbix_server_ip=${zabbix_server_ip}
-    if [ -z ${zabbix_server_ip} ] ; then # The empty string is considered as unset
-        zabbix_server_ip=${ZABBIX_SERVER_IP_DEFAULT}
-    fi
+    export zabbix_server_ip=${zabbix_server_ip:-$ZABBIX_SERVER_IP_DEFAULT}
     log_success_msg "Setting the ZABBIX server IP: ${zabbix_server_ip}"
     sed -i "s|zabbix-host\s*=\s*localhost|zabbix-host=${zabbix_server_ip}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 
     # Set the zabbix user
-    export zabbix_user=${zabbix_user}
-    if [ -z ${zabbix_user} ] ; then # The empty string is considered as unset
-        zabbix_user=${ZABBIX_USER_DEFAULT}
-    fi
+    export zabbix_user=${zabbix_user:-$ZABBIX_USER_DEFAULT}
     log_success_msg "Setting the ZABBIX user: ${zabbix_user}"
-    sed -i "s|user-zbx\s*=\s*admin|user-zbx=${zabbix_user}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
+    sed -i "s|user-zbx\s*=\s*.*|user-zbx=${zabbix_user}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 
     # Set the zabbix user's password
-    export zabbix_user_password=${zabbix_user_password}
-    if [ -z ${zabbix_user_password} ] ; then # The empty string is considered as unset
-        zabbix_user_password=${ZABBIX_USER_PASSWORD_DEFAULT}
-    fi
+    export zabbix_user_password=${zabbix_user_password:-$ZABBIX_USER_PASSWORD_DEFAULT}
     log_success_msg "Setting the ZABBIX user's password: ${zabbix_user_password}"
-    sed -i "s|password-zbx\s*=\s*zabbix|password-zbx=${zabbix_user_password}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
+    sed -i "s|password-zbx\s*=\s*.*|password-zbx=${zabbix_user_password}|g" ${OPENBATON_BASE_CONFIG_DIR}/${OPENBATON_COMPONENT_CONFIG_FILE}
 }
 
 configure_nfvo () {
