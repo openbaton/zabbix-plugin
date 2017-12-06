@@ -17,11 +17,13 @@ package org.openbaton.monitoring.agent;
 import com.google.gson.*;
 import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.exceptions.UnirestException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.rmi.RemoteException;
 import java.text.DateFormat;
@@ -37,6 +39,7 @@ import org.openbaton.catalogue.mano.common.monitoring.*;
 import org.openbaton.catalogue.nfvo.EndpointType;
 import org.openbaton.catalogue.nfvo.Item;
 import org.openbaton.catalogue.util.IdGenerator;
+import org.openbaton.exceptions.BadFormatException;
 import org.openbaton.exceptions.MonitoringException;
 import org.openbaton.monitoring.agent.alarm.catalogue.Metric;
 import org.openbaton.monitoring.agent.performance.management.catalogue.PmJob;
@@ -342,16 +345,8 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     }
   }
 
-  private void handleNotification(ZabbixNotification zabbixNotification) throws UnirestException {
-
-    /*if(isDatacenterNotification(zabbixNotification)){
-        log.debug("Received a datacenter alarm from: "+zabbixNotification.getHostName());
-        handleDatacenterNotification(zabbixNotification);
-        return;
-    }*/
-
+  private void handleNotification(ZabbixNotification zabbixNotification) {
     List<AlarmEndpoint> subscribers = getSubscribers(zabbixNotification);
-
     if (subscribers.isEmpty()) {
       log.debug("No subscribers for this notification");
       return;
@@ -911,51 +906,38 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
   class MyHandler implements HttpHandler {
     @Override
-    public void handle(HttpExchange t) {
+    public void handle(HttpExchange t) throws IOException {
       InputStream is = t.getRequestBody();
-
-      String message = read(is);
       try {
+        String message = read(is);
         checkRequest(message);
-      } catch (UnirestException e) {
-        e.printStackTrace();
-      }
-      String response = "";
-      try {
-        t.sendResponseHeaders(200, response.length());
-        OutputStream os = t.getResponseBody();
-        os.write(response.getBytes());
-        os.close();
-      } catch (IOException e) {
+        t.sendResponseHeaders(200, 0);
+      } catch (Exception e) {
+        t.sendResponseHeaders(500, 0);
         log.error(e.getMessage(), e);
       }
     }
 
-    private void checkRequest(String message) throws UnirestException {
+    private void checkRequest(String message) throws BadFormatException {
       log.debug("\n\n");
       log.debug("Received: " + message);
       ZabbixNotification zabbixNotification;
       try {
         zabbixNotification = mapper.fromJson(message, ZabbixNotification.class);
-      } catch (Exception e) {
-        log.warn("Impossible to retrieve the ZabbixNotification received", e);
-        return;
+      } catch (JsonSyntaxException e) {
+        throw new BadFormatException(
+            "JsonSyntaxException: Impossible to retrieve the ZabbixNotification received");
       }
       log.debug("\n");
       log.debug("ZabbixNotification: " + zabbixNotification);
       handleNotification(zabbixNotification);
     }
 
-    private String read(InputStream is) {
-
+    private String read(InputStream is) throws IOException {
       StringBuilder responseStrBuilder = new StringBuilder();
-
-      String inputStr;
-
       try (BufferedReader streamReader = new BufferedReader(new InputStreamReader(is, "UTF-8"))) {
+        String inputStr;
         while ((inputStr = streamReader.readLine()) != null) responseStrBuilder.append(inputStr);
-      } catch (IOException e) {
-        log.error(e.getMessage(), e);
       }
       return responseStrBuilder.toString();
     }
