@@ -100,24 +100,15 @@ zabbix-server-version=3.0
 ## Additional Zabbix Server configuration required for receiving notifications
 
 If you are going to use Open Baton FM System or you wish to use the createThreshold method, you need this additional configuration.  
-Create a script called "send_notification.sh" with the following content.
-
-```bash
-#!/bin/bash
-to=$1
-body=$3
-curl -X POST -H "Accept: application/json" -H "Content-Type: application/json" -d "$body" http://$to
-```
-The variable 'to' is the endpoint where Zabbix Plugin receives the notification (specified in **notification-receiver-server-context** property). 
-Copy the following script in the Zabbix Server machine. In particular, in a special directory defined in the Zabbix Server configuration file (/etc/zabbix/zabbix_server.conf) as AlertScriptsPath variable. 
+Copy the script **zabbix-configuration/send_notification.sh** in the Zabbix Server machine. In particular, in a special directory defined in the Zabbix Server configuration file (/etc/zabbix/zabbix_server.conf) as AlertScriptsPath variable. 
 If the value of the variable AlertScriptsPath is for example "/usr/lib/zabbix/alertscripts", 
-then copy the send_notification.sh script just created in that folder.  
+then copy the send_notification.sh script in that folder.  
 Once you are in the directory "/usr/lib/zabbix/alertscripts", add executable permissions to the script running the command:
 ```bash
 sudo chmod +x send_notification.sh
 ```
 
-*Note*: when you will use the method createThreshold, Zabbix Plugin will configure Zabbix Server automatically in order to use the script "send_notification.sh". 
+**Note**: when you will use the method createThreshold, Zabbix Plugin will configure Zabbix Server automatically in order to use the script "send_notification.sh". 
 What it will try to do is the configuration at this page [custom alertscripts][custom-alertscripts]. 
 If for any reason this auto-configuration won't work, you will see in the Zabbix Plugin logs, then you should execute this configuration manually as explained in the Zabbix documentation.
 

@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# This script send a POST request to the Zabbix Plugin.
-# "to" is the Zabbix Plugin endpoint
-# "body" is the information about the trigger 
+# This script sends a POST request to the Zabbix Plugin.
 # If it fails, it logs the reason in the log file
+# Arguments:
+# "to" is the Zabbix Plugin endpoint
+# "body" is the information about the trigger as JSON
 
 to=$1
 body=$3
