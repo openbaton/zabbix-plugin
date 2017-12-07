@@ -159,7 +159,7 @@ repositories {
 }
 
 dependencies {
-    compile 'org.openbaton:monitoring:5.0.0'
+    compile 'org.openbaton:monitoring:5.0.1'
 }
 ```
 
