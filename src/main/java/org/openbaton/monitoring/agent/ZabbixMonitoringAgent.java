@@ -20,10 +20,7 @@ import com.mashape.unirest.http.HttpResponse;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.rmi.RemoteException;
 import java.text.DateFormat;
@@ -907,13 +904,18 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
   class MyHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange t) throws IOException {
-      InputStream is = t.getRequestBody();
-      try {
+      try (InputStream is = t.getRequestBody()) {
         String message = read(is);
         checkRequest(message);
         t.sendResponseHeaders(200, 0);
+        try (OutputStream os = t.getResponseBody()) {
+          os.close();
+        }
       } catch (Exception e) {
         t.sendResponseHeaders(500, 0);
+        try (OutputStream os = t.getResponseBody()) {
+          os.close();
+        }
         log.error(e.getMessage(), e);
       }
     }
