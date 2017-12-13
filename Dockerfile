@@ -11,5 +11,6 @@ COPY --from=builder /project/src/main/resources/plugin.conf.properties /etc/open
 ENV ZABBIX_PLUGIN_IP=localhost
 ENV ZABBIX_ENDPOINT=/zabbix/api_jsonrpc.php
 ENV ZABBIX_PORT=80
+ENV FAULTS_CONSUMER_ENDPOINT=http://localhost:9000/alarm/vr
 ENTRYPOINT ["supervisord", "--configuration", "/etc/supervisord.conf"]
 EXPOSE 8010

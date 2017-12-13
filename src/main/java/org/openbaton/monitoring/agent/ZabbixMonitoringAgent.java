@@ -299,12 +299,13 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
     history = new LimitedQueue<>(historyLength);
     mapper = new GsonBuilder().setPrettyPrinting().create();
     subscriptions = new ArrayList<>();
+    String faultsConsumerEndpoint = properties.getProperty("faults-consumer-endpoint");
     subscribeForFault(
         new AlarmEndpoint(
-            "fmsystem",
+            "faults-consumer",
             null,
             EndpointType.REST,
-            "http://localhost:9000/alarm/vr",
+            faultsConsumerEndpoint,
             PerceivedSeverity.MINOR));
     triggerIdHostnames = new HashMap<>();
     pmJobs = new HashMap<>();
