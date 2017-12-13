@@ -66,6 +66,7 @@ The configuration parameters are explained in the following table.
 | history-length                        |  How long is the history. If the client-request-frequency is 10 seconds and history-length 100, we have available the value of the items of the previous 1000 seconds. | 250
 | notification-receiver-server-context  |  Context where the zabbix-plugin receive the notifications by the zabbix server. (see the section 'How to configure Zabbix to get notifications') | /zabbixplugin/notifications 
 | notification-receiver-server-port     |  Port where the zabbix-plugin receive the notifications by the zabbix server. | 8010
+| faults-consumer-endpoint     |  Faults consumer endpoint to be notified in case of alarms, by default is the Open Baton FMS endpoint | http://localhost:9000/alarm/vr
 | external-properties-file              |  Full path of the configuration file.  | /etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 | zabbix-host                           |  IP of the Zabbix Server      | localhost
 | zabbix-port                           |  Port of the Zabbix Server    | 
@@ -85,6 +86,9 @@ client-request-frequency=10
 history-length=250
 notification-receiver-server-context=/zabbixplugin/notifications
 notification-receiver-server-port=8010
+# Faults consumer endpoint to be notified in case of alarms,
+# by default is the Open Baton FMS endpoint
+faults-consumer-endpoint=http://localhost:9000/alarm/vr
 external-properties-file=/etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 
 ## Zabbix Server info
