@@ -26,6 +26,7 @@ public class HistoryObject implements Serializable {
 
   private String hostId = "";
   private Map<String, String> measurements = new HashMap<String, String>();
+  private Map<String, String> units = new HashMap<String, String>();
 
   public String getHostId() {
     return hostId;
@@ -43,12 +44,28 @@ public class HistoryObject implements Serializable {
     return measurements.get(key);
   }
 
+  public void setUnit(String key, String value) {
+    units.put(key, value);
+  }
+
+  public String getUnit(String key) {
+    return units.get(key);
+  }
+
   public boolean keyExists(String key) {
     return measurements.containsKey(key);
   }
 
   @Override
   public String toString() {
-    return "HistoryObject{" + "hostId='" + hostId + '\'' + ", measurements=" + measurements + '}';
+    return "HistoryObject{"
+        + "hostId='"
+        + hostId
+        + '\''
+        + ", measurements="
+        + measurements
+        + ", units="
+        + units
+        + '}';
   }
 }

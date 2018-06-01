@@ -49,6 +49,8 @@ import org.slf4j.LoggerFactory;
 /** Created by mob on 22.10.15. */
 public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
+  private static Logger logger = LoggerFactory.getLogger(ZabbixMonitoringAgent.class);
+
   private int historyLength;
   private int requestFrequency;
   private String zabbixPluginIp;
@@ -78,7 +80,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         @Override
         public void run() {
           JsonObject responseObj;
-          String params = "{'output': ['name'], 'selectItems': ['key_', 'lastvalue']}";
+          String params = "{'output': ['name'], 'selectItems': ['key_', 'lastvalue' ,'units']}";
           try {
             responseObj = zabbixSender.callPost(params, "host.get");
           } catch (MonitoringException e) {
@@ -101,6 +103,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
             // add the values to the HistoryObject
             while (itemIterator.hasNext()) {
               JsonObject item = itemIterator.next().getAsJsonObject();
+              ho.setUnit(item.get("key_").getAsString(), item.get("units").getAsString());
               ho.setMeasurement(
                   item.get("key_").getAsString(), item.get("lastvalue").getAsString());
             }
@@ -215,6 +218,16 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
           String value = hObj.getMeasurement(metric);
           item.setLastValue("" + Double.parseDouble(value));
+          HashMap<String, String> metadata = new HashMap<>();
+          metadata.put(metric, hObj.getUnit(metric));
+          if (item.getMetadata() == null) {
+            item.setMetadata(metadata);
+          } else {
+            HashMap<String, String> fusedmetadata = new HashMap<>();
+            fusedmetadata.putAll(metadata);
+            fusedmetadata.putAll(item.getMetadata());
+            item.setMetadata(fusedmetadata);
+          }
 
           Double avg = Double.valueOf(0);
           if (avg != null) { // it is a number and no string
