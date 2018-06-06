@@ -17,6 +17,7 @@ package org.openbaton.monitoring.agent;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 /** Created by tbr on 27.10.15. */
@@ -54,6 +55,48 @@ public class HistoryObject implements Serializable {
 
   public boolean keyExists(String key) {
     return measurements.containsKey(key);
+  }
+
+  public LinkedList<String> getWildcardKeys(String wildcard) {
+    LinkedList<String> wildcardKeys = new LinkedList<>();
+    String search_start = wildcard.substring(0, wildcard.indexOf("*"));
+    String search_end = wildcard.substring(wildcard.indexOf("*"), wildcard.length() - 1);
+    if (wildcard.contains("*")) {
+      if (wildcard.length() == 1) {
+        for (String key : measurements.keySet()) {
+          wildcardKeys.add(key);
+        }
+        return wildcardKeys;
+      }
+      if (wildcard.startsWith("*")) {
+        for (String key : measurements.keySet()) {
+          if (key.endsWith(search_end)) {
+            wildcardKeys.add(key);
+          }
+        }
+      } else if (wildcard.endsWith("*")) {
+        for (String key : measurements.keySet()) {
+          if (key.startsWith(search_start)) {
+            wildcardKeys.add(key);
+          }
+        }
+      } else {
+        for (String key : measurements.keySet()) {
+          if (key.startsWith(search_start)) {
+            wildcardKeys.add(key);
+          } else if (key.endsWith(search_end)) {
+            wildcardKeys.add(key);
+          }
+        }
+      }
+    } else {
+      for (String key : measurements.keySet()) {
+        if (key.indexOf(wildcard) >= 0) {
+          wildcardKeys.add(key);
+        }
+      }
+    }
+    return wildcardKeys;
   }
 
   @Override

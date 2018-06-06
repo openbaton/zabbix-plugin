@@ -75,6 +75,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
   private HttpServer server;
   private MyHandler myHandler;
   //
+
   private Runnable updateHistory =
       new Runnable() {
         @Override
@@ -82,7 +83,7 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
           JsonObject responseObj;
           String params = "{'output': ['name'], 'selectItems': ['key_', 'lastvalue' ,'units']}";
           try {
-            responseObj = zabbixSender.callPost(params, "host.get");
+            responseObj = callPost(params, "host.get");
           } catch (MonitoringException e) {
             log.error("Exception while updating hosts:" + e.getMessage());
             return;
@@ -107,7 +108,6 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
               ho.setMeasurement(
                   item.get("key_").getAsString(), item.get("lastvalue").getAsString());
             }
-
             snapshot.put(hostName, ho);
           }
           State state = new State(timestamp, snapshot);
@@ -116,6 +116,12 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
           }
         }
       };
+
+  private JsonObject callPost(String params, String method) throws MonitoringException {
+    JsonObject responseObj;
+    responseObj = zabbixSender.callPost(params, method);
+    return responseObj;
+  }
 
   public ZabbixMonitoringAgent() throws RemoteException, MonitoringException {
     super();
@@ -189,96 +195,163 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
 
         for (String metric : metrics) {
           Iterator<State> historyIterator = historyImportant.iterator();
-
-          Item item = new Item();
-          item.setHostname(host);
-          item.setMetric(metric);
-
-          Map<String, HistoryObject> hostsHistory =
-              historyImportant.get(historyImportant.size() - 1).getHostsHistory();
-          log.debug("All hosts are: " + hostsHistory.keySet());
-
-          if (!hostsHistory.keySet().contains(host)) {
-            log.warn("Host " + host + " is not contained in the history");
-            break;
-          }
-
-          HistoryObject hObj = hostsHistory.get(host);
-          log.debug("HistoryObject is: " + hObj);
-
-          if (!hObj.keyExists(metric))
-            if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
-              log.warn("The metric " + metric + " does not exist for host " + host + ".");
-              continue;
-            } else
-              throw new MonitoringException(
-                  "The metric " + metric + " does not exist for host " + host + ".");
-
-          item.setHostId(hObj.getHostId());
-
-          String value = hObj.getMeasurement(metric);
-          item.setLastValue("" + Double.parseDouble(value));
-          HashMap<String, String> metadata = new HashMap<>();
-          metadata.put(metric, hObj.getUnit(metric));
-          if (item.getMetadata() == null) {
-            item.setMetadata(metadata);
-          } else {
-            HashMap<String, String> fusedmetadata = new HashMap<>();
-            fusedmetadata.putAll(metadata);
-            fusedmetadata.putAll(item.getMetadata());
-            item.setMetadata(fusedmetadata);
-          }
-
-          Double avg = Double.valueOf(0);
-          if (avg != null) { // it is a number and no string
-            int tot = 0;
-            while (historyIterator.hasNext()) {
-              Map<String, HistoryObject> hostsAndHistory = historyIterator.next().getHostsHistory();
-              if (!hostsAndHistory.containsKey(host)) {
-                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
-                  log.warn(
-                      "The period is too long for host "
-                          + host
-                          + " because he just started existing inside the specified time frame.");
-                  continue;
-                } else
-                  throw new MonitoringException(
-                      "The period is too long for host "
-                          + host
-                          + " because he just started existing inside the specified time frame.");
-              }
-              if (!hostsAndHistory.get(host).keyExists(metric)) {
-                if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
-                  log.warn(
-                      "The metric "
-                          + metric
-                          + "did not exist at every time in the specified period for host "
-                          + host
-                          + ".");
-                  continue;
-                } else
-                  throw new MonitoringException(
-                      "The metric "
-                          + metric
-                          + "did not exist at every time in the specified period for host "
-                          + host
-                          + ".");
-              }
-              Double parseDouble =
-                  Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
-              log.debug("HistoryValue is: " + parseDouble);
-              avg += parseDouble;
-              tot++;
+          // Check for wildcards
+          if (metric.contains("*")) {
+            log.debug("Querying Wildcard metric!");
+            Iterator<State> wildcardHistoryIterator = historyImportant.iterator();
+            Map<String, HistoryObject> wildcardHostsAndHistory =
+                wildcardHistoryIterator.next().getHostsHistory();
+            if (!wildcardHostsAndHistory.containsKey(host)) {
+              if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                log.warn(
+                    "The period is too long for host "
+                        + host
+                        + " because he just started existing inside the specified time frame.");
+                continue;
+              } else
+                throw new MonitoringException(
+                    "The period is too long for host "
+                        + host
+                        + " because he just started existing inside the specified time frame.");
             }
-            log.debug(avg + " / " + tot + " = " + (avg / tot));
-            avg /= tot;
-            log.debug("Value found is: " + avg);
-          }
-          // if the metric's value is a String, just store the last value as value
-          item.setValue("" + avg);
+            LinkedList<String> wildcardMetrics =
+                wildcardHostsAndHistory.get(host).getWildcardKeys(metric);
+            //log.debug("Found wildcard metrics : " + wildcardMetrics);
+            for (String calculatedMetric : wildcardMetrics) {
+              Item calculatedWildcardItem = new Item();
+              //log.debug("Setting : host :" + host + " , metric : " + calculatedMetric);
+              calculatedWildcardItem.setHostname(host);
+              calculatedWildcardItem.setMetric(calculatedMetric);
+              //log.debug("Checking the host history");
+              Map<String, HistoryObject> hostsHistory =
+                  historyImportant.get(historyImportant.size() - 1).getHostsHistory();
+              //log.debug("Checking specific host history");
+              HistoryObject hObj = hostsHistory.get(host);
+              //log.debug("Setting host id : " + hObj.getHostId());
+              calculatedWildcardItem.setHostId(hObj.getHostId());
+              //log.debug("Setting metric : " + calculatedMetric);
+              String value = hObj.getMeasurement(calculatedMetric);
+              calculatedWildcardItem.setLastValue("" + Double.parseDouble(value));
+              HashMap<String, String> metadata = new HashMap<>();
+              metadata.put(calculatedMetric, hObj.getUnit(calculatedMetric));
+              if (calculatedWildcardItem.getMetadata() == null) {
+                calculatedWildcardItem.setMetadata(metadata);
+              } else {
+                HashMap<String, String> fusedmetadata = new HashMap<>();
+                fusedmetadata.putAll(metadata);
+                fusedmetadata.putAll(calculatedWildcardItem.getMetadata());
+                calculatedWildcardItem.setMetadata(fusedmetadata);
+              }
+              /*
+              Double avg = Double.valueOf(0);
+              if (avg != null) { // it is a number and no string
+                int tot = 0;
+                Double parseDouble =
+                        Double.parseDouble(wildcardHostsAndHistory.get(host).getMeasurement(calculatedMetric));
+                log.debug("HistoryValue is: " + parseDouble);
+                avg += parseDouble;
+                tot++;
+              }
+              log.debug(avg + " / " + tot + " = " + (avg / tot));
+              avg /= tot;
+              log.debug("Value found is: " + avg);
+              */
 
-          log.debug("Adding item: " + item);
-          items.add(item);
+              log.debug("Adding item: " + calculatedWildcardItem);
+              items.add(calculatedWildcardItem);
+            }
+          } else {
+            Item item = new Item();
+            item.setHostname(host);
+            item.setMetric(metric);
+
+            Map<String, HistoryObject> hostsHistory =
+                historyImportant.get(historyImportant.size() - 1).getHostsHistory();
+            log.debug("All hosts are: " + hostsHistory.keySet());
+
+            if (!hostsHistory.keySet().contains(host)) {
+              log.warn("Host " + host + " is not contained in the history");
+              break;
+            }
+
+            HistoryObject hObj = hostsHistory.get(host);
+            log.debug("HistoryObject is: " + hObj);
+
+            if (!hObj.keyExists(metric))
+              if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                log.warn("The metric " + metric + " does not exist for host " + host + ".");
+                continue;
+              } else
+                throw new MonitoringException(
+                    "The metric " + metric + " does not exist for host " + host + ".");
+
+            item.setHostId(hObj.getHostId());
+
+            String value = hObj.getMeasurement(metric);
+            item.setLastValue("" + Double.parseDouble(value));
+            HashMap<String, String> metadata = new HashMap<>();
+            metadata.put(metric, hObj.getUnit(metric));
+            if (item.getMetadata() == null) {
+              item.setMetadata(metadata);
+            } else {
+              HashMap<String, String> fusedmetadata = new HashMap<>();
+              fusedmetadata.putAll(metadata);
+              fusedmetadata.putAll(item.getMetadata());
+              item.setMetadata(fusedmetadata);
+            }
+
+            Double avg = Double.valueOf(0);
+            if (avg != null) { // it is a number and no string
+              int tot = 0;
+              while (historyIterator.hasNext()) {
+                Map<String, HistoryObject> hostsAndHistory =
+                    historyIterator.next().getHostsHistory();
+                if (!hostsAndHistory.containsKey(host)) {
+                  if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                    log.warn(
+                        "The period is too long for host "
+                            + host
+                            + " because he just started existing inside the specified time frame.");
+                    continue;
+                  } else
+                    throw new MonitoringException(
+                        "The period is too long for host "
+                            + host
+                            + " because he just started existing inside the specified time frame.");
+                }
+                if (!hostsAndHistory.get(host).keyExists(metric)) {
+                  if (!Boolean.parseBoolean(properties.getProperty("enable-exception", "false"))) {
+                    log.warn(
+                        "The metric "
+                            + metric
+                            + "did not exist at every time in the specified period for host "
+                            + host
+                            + ".");
+                    continue;
+                  } else
+                    throw new MonitoringException(
+                        "The metric "
+                            + metric
+                            + "did not exist at every time in the specified period for host "
+                            + host
+                            + ".");
+                }
+                Double parseDouble =
+                    Double.parseDouble(hostsAndHistory.get(host).getMeasurement(metric));
+                log.debug("HistoryValue is: " + parseDouble);
+                avg += parseDouble;
+                tot++;
+              }
+              log.debug(avg + " / " + tot + " = " + (avg / tot));
+              avg /= tot;
+              log.debug("Value found is: " + avg);
+            }
+            // if the metric's value is a String, just store the last value as value
+            item.setValue("" + avg);
+
+            log.debug("Adding item: " + item);
+            items.add(item);
+          }
         }
       }
     }
@@ -622,41 +695,68 @@ public class ZabbixMonitoringAgent extends MonitoringPlugin {
         for (String performanceMetric : performanceMetrics) {
           log.debug("The performance metric is: " + performanceMetric);
           int type = getType(collectionPeriod);
-
-          // check already exists
-          String itemId = zabbixApiManager.getItemId(performanceMetric, hostId);
-
-          if (itemId != null) {
-            pmJob.addPerformanceMetric(itemId, performanceMetric);
-            continue;
-          }
-
-          //Check if is present a LLD
-          if (isPrototype(performanceMetric)) {
-
-            String ruleId = zabbixApiManager.getRuleId(hostId);
-            itemId =
-                zabbixApiManager.createPrototypeItem(
-                    collectionPeriod,
-                    hostId,
-                    interfaceId,
-                    performanceMetric,
-                    "ZabbixPrototypeItem on demand: " + performanceMetric,
-                    type,
-                    0,
-                    ruleId);
-            pmJob.addPerformanceMetric(itemId, performanceMetric);
+          // Check for wildcard
+          if (performanceMetric.contains("*")) {
+            // Get the host list
+            log.debug("The performance metric is a wildcard");
+            String params =
+                "{'output': ['itemid','key_'],"
+                    + "'hostids': '"
+                    + hostId
+                    + "' ,'search': {'key_':'"
+                    + performanceMetric
+                    + "' },'searchWildcardsEnabled': 'true' }";
+            String method = "item.get";
+            //log.debug(params);
+            JsonObject items = callPost(params, method);
+            //log.debug(items.toString());
+            JsonArray itemArray = items.get("result").getAsJsonArray();
+            Iterator<JsonElement> iterator = itemArray.iterator();
+            while (iterator.hasNext()) {
+              JsonObject jsonObj = iterator.next().getAsJsonObject();
+              String itemId = jsonObj.getAsJsonObject().get("itemid").getAsString();
+              String key = jsonObj.getAsJsonObject().get("key_").getAsString();
+              if (itemId != null) {
+                //log.debug(itemId + " : " + key);
+                pmJob.addPerformanceMetric(itemId, key);
+              }
+            }
           } else {
-            itemId =
-                zabbixApiManager.createItem(
-                    "ZabbixItem on demand: " + performanceMetric,
-                    collectionPeriod,
-                    hostId,
-                    type,
-                    0,
-                    performanceMetric,
-                    interfaceId);
-            pmJob.addPerformanceMetric(itemId, performanceMetric);
+            // check already exists
+            String itemId = zabbixApiManager.getItemId(performanceMetric, hostId);
+
+            if (itemId != null) {
+              pmJob.addPerformanceMetric(itemId, performanceMetric);
+              continue;
+            }
+
+            //Check if is present a LLD
+            if (isPrototype(performanceMetric)) {
+
+              String ruleId = zabbixApiManager.getRuleId(hostId);
+              itemId =
+                  zabbixApiManager.createPrototypeItem(
+                      collectionPeriod,
+                      hostId,
+                      interfaceId,
+                      performanceMetric,
+                      "ZabbixPrototypeItem on demand: " + performanceMetric,
+                      type,
+                      0,
+                      ruleId);
+              pmJob.addPerformanceMetric(itemId, performanceMetric);
+            } else {
+              itemId =
+                  zabbixApiManager.createItem(
+                      "ZabbixItem on demand: " + performanceMetric,
+                      collectionPeriod,
+                      hostId,
+                      type,
+                      0,
+                      performanceMetric,
+                      interfaceId);
+              pmJob.addPerformanceMetric(itemId, performanceMetric);
+            }
           }
         }
       }
