@@ -63,7 +63,7 @@ project.ext {
      * Gradle Related Vars
      */
     mainClass = 'org.openbaton.monitoring.agent.Starter'
-    openbatonVersion = "6.0.0-RC1"
+    openbatonVersion = "6.0.0"
     //------------------------------------------------//
 }
 
