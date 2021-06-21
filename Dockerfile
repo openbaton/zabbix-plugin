@@ -5,7 +5,7 @@ RUN ./gradlew build -x test
 
 FROM openjdk:8-jre-alpine
 COPY --from=builder /project/build/libs/*.jar /plugin-monitoring-zabbix.jar
-RUN apk add -u --no-cache python py-pip &&pip install supervisor &&mkdir -p /var/log/openbaton
+RUN apk add -u --no-cache python py-pip && pip install --no-cache-dir supervisor && mkdir -p /var/log/openbaton
 COPY --from=builder /project/gradle/gradle/scripts/docker/supervisord.conf /etc/supervisord.conf
 COPY --from=builder /project/src/main/resources/plugin.conf.properties /etc/openbaton/openbaton-plugin-monitoring-zabbix.properties
 ENV ZABBIX_PLUGIN_IP=localhost
